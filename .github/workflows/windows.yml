@@ -1,0 +1,25 @@
+name: Windows Hub test installer
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - run: choco install nsis --version=3.11 -y --no-progress
+      - shell: pwsh
+        run: ./installer/build.ps1
+      - shell: pwsh
+        run: ./installer/smoke.ps1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: EvidenceNeuterHub-Windows-0.1.0-test-installer
+          path: |
+            artifacts/EvidenceNeuterHub-Setup-0.1.0.exe
+            artifacts/SHA256.txt
+            artifacts/windows-smoke.png
+          if-no-files-found: error
