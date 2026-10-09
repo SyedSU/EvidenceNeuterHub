@@ -2,8 +2,12 @@ $ErrorActionPreference = 'Stop'
 Set-Location "$PSScriptRoot/.."
 dotnet run --project tests/CoreTests.csproj -c Release
 if ($LASTEXITCODE) { throw 'Tests failed' }
-dotnet run --project tests/UpdaterTests/UpdaterTests.csproj -c Release
-if ($LASTEXITCODE) { throw 'Updater tests failed' }
+dotnet run --project tests/UpdaterTests/UpdaterTests.csproj -c Release 2>&1 | Tee-Object -Variable updaterOutput
+if ($LASTEXITCODE) {
+  $detail = (($updaterOutput | Select-Object -Last 20) -join ' | ').Replace('%', '%25').Replace("`r", '%0D').Replace("`n", '%0A')
+  Write-Output "::error title=Updater test failure::$detail"
+  throw 'Updater tests failed'
+}
 dotnet build tools/release/ReleaseTool.csproj -c Release
 if ($LASTEXITCODE) { throw 'Release tool build failed' }
 if ($env:GENESIS_RELEASE_PUBLIC_KEY_PEM) { Set-Content -Path release-public.pem -Value $env:GENESIS_RELEASE_PUBLIC_KEY_PEM }
