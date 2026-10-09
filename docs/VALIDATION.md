@@ -22,3 +22,15 @@ Linux cannot execute the native Windows interface or installer. This package is 
 6. Benchmark idle/launch memory, CPU and responsiveness on target Acer. Do not claim hardware suitability before measuring. Validate Authenticode-signed final build before public publication.
 
 The Hub reports installation detection, not authenticated product/version identity or successful game initialization. Downloads and updater are intentionally unavailable and accurately labeled. Public download URL, signed manifest catalog, measured requirements and website button remain future integration work.
+
+## Genesis updater milestone — Hub 0.2.0
+
+Verified source branch remains a5cb2e9d83114e70e8e72ff444fe2095e58573e4. Upstream native Windows workflow 37816705243 succeeded and its 0.3.0 artifact exists (not a public release). Distribution repository is public and has zero published releases at inspection.
+
+Executed on Linux: existing 14 foundation assertions and 45 updater assertions passed. Updater coverage includes cryptographic signature/key/schema/platform/version/expiry validation, safe URLs and ZIP paths, real filesystem component staging/activation, byte progress, cancellation/cleanup, archive and file corruption, concurrent locks, anti-replay/downgrade, unchanged runtime/model reuse, verified import without downloads, save backups/preservation, rollback and offline tampering. Real isolated loopback HTTPS transfers verify transport completion, cancellation mid-transfer and truncated-response rejection; certificate trust is pinned to an ephemeral test certificate only in the test project. Fixtures contain synthetic test executables and ephemeral metadata keys, not published Genesis packages.
+
+Windows-target publish and release-tool compilation passed with zero warnings. Workflow YAML parsed successfully; actual GitHub workflow execution is recorded in the PR/run links after push. The publishing workflow has not been dispatched and no production signing keys are configured by this task.
+
+Attempt to fetch the real native artifact was blocked by the environment egress policy for `productionresultssa10.blob.core.windows.net`. Therefore actual Genesis package import/launch, genuine game/model execution through the new Hub, real public GitHub component download, target-laptop performance, Authenticode signing and power-loss hardware fault injection remain unverified. These are not represented as successful installs. Prior upstream native tests do not establish the new Hub's genuine game integration.
+
+The production trust key is intentionally absent until securely configured; unconfigured installers keep imported Play and refuse release installation. Windows CI uses synthetic package transactions plus native Hub installer/window/uninstall smoke. Windows 10 laptop acceptance and an actual signed public release are deployment prerequisites. Range-resume, TUF key rotation/revocation, cache garbage collection, automatic save migration and Hub self-updates are explicitly deferred.

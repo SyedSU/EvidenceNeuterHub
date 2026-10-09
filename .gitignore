@@ -2,3 +2,4 @@ bin/
 obj/
 artifacts/
 installer/packaged-uninstall.nsh
+release-public.pem

@@ -8,7 +8,7 @@ Function .onInit
  ${EndIf}
 FunctionEnd
 Name "Evidence Neuter Hub"
-OutFile "..\artifacts\EvidenceNeuterHub-Setup-0.1.0.exe"
+OutFile "..\artifacts\EvidenceNeuterHub-Setup-0.2.0.exe"
 InstallDir "$LOCALAPPDATA\Programs\EvidenceNeuterHub"
 RequestExecutionLevel user
 !define MUI_ABORTWARNING
@@ -29,7 +29,7 @@ Section "Hub (required)"
  CreateDirectory "$SMPROGRAMS\Evidence Neuter"
  CreateShortcut "$SMPROGRAMS\Evidence Neuter\Hub.lnk" "$INSTDIR\EvidenceNeuterHub.exe"
  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\EvidenceNeuterHub" "DisplayName" "Evidence Neuter Hub"
- WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\EvidenceNeuterHub" "DisplayVersion" "0.1.0"
+ WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\EvidenceNeuterHub" "DisplayVersion" "0.2.0"
  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\EvidenceNeuterHub" "UninstallString" '$\"$INSTDIR\Uninstall.exe$\"'
  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\EvidenceNeuterHub" "InstallLocation" "$INSTDIR"
 SectionEnd

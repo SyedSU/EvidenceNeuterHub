@@ -1,7 +1,7 @@
 $ErrorActionPreference = 'Stop'
 Set-Location "$PSScriptRoot/.."
 $target = Join-Path $env:TEMP ('hub-install-test-' + [guid]::NewGuid())
-$exe = (Resolve-Path artifacts/EvidenceNeuterHub-Setup-0.1.0.exe).Path
+$exe = (Resolve-Path artifacts/EvidenceNeuterHub-Setup-0.2.0.exe).Path
 $p = Start-Process $exe -ArgumentList @('/S', "/D=$target") -Wait -PassThru
 if ($p.ExitCode -ne 0 -or !(Test-Path "$target/EvidenceNeuterHub.exe")) { throw 'Install failed' }
 $shortcut = Join-Path ([Environment]::GetFolderPath('StartMenu')) 'Programs/Evidence Neuter/Hub.lnk'
