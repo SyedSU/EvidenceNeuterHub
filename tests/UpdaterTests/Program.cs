@@ -91,6 +91,27 @@ try {
  Assert(handler.Requests.Count==0,"verified imported installation uses no downloads");
  Assert(File.Exists(Path.Combine(importRoot,"EvidenceGenesis.exe")),"import source preserved");
  using(var redirects=new DownloadClient(new RedirectHandler())) await Reject(()=>redirects.MetadataAsync(CancellationToken.None),"untrusted redirect rejected");
+ // Exercise the actual publisher tool with licensed fixture files and an ephemeral key.
+ Directory.CreateDirectory(Path.Combine(importRoot,"licenses"));
+ File.WriteAllText(Path.Combine(importRoot,"licenses","Qwen-LICENSE.txt"),"test license");
+ File.WriteAllText(Path.Combine(importRoot,"licenses","llama.cpp-LICENSE.txt"),"test license");
+ async Task<string> PackageTool(string destination,string version,long sequence) {
+  var info=new System.Diagnostics.ProcessStartInfo(Environment.GetEnvironmentVariable("DOTNET_HOST_PATH")??"dotnet") {UseShellExecute=false,RedirectStandardOutput=true,RedirectStandardError=true};
+  foreach(var arg in new[]{"run","--project","tools/release/ReleaseTool.csproj","-c","Release","--",importRoot,destination,version,sequence.ToString(),new string('a',40),"genesis-v"+version})info.ArgumentList.Add(arg);
+  info.Environment["RELEASE_SIGNING_KEY_PEM"]=key.ExportPkcs8PrivateKeyPem();info.Environment["GENESIS_RELEASE_PUBLIC_KEY_PEM"]=publicKey;
+  info.Environment.Remove("PREVIOUS_RELEASE_METADATA_PATH");
+  using var child=System.Diagnostics.Process.Start(info)!;var stdout=child.StandardOutput.ReadToEndAsync();var stderr=child.StandardError.ReadToEndAsync();await child.WaitForExitAsync();
+  var output=await stdout;var errors=await stderr;Assert(child.ExitCode==0,"publisher tool executes: "+(child.ExitCode==0?"success":output+errors));
+  return File.ReadAllText(Path.Combine(destination,"genesis-stable.json"));
+ }
+ var packaged=await PackageTool(Path.Combine(folder,"publisher-one"),"0.3.0",1);
+ var packagedRelease=Metadata.Verify(packaged,publicKey);
+ Assert(packagedRelease.Manifest.Packages.Length==3,"publisher emits signed separate components");
+ var packagedAgain=Metadata.Verify(await PackageTool(Path.Combine(folder,"publisher-two"),"0.3.1",2),publicKey);
+ Assert(packagedRelease.Manifest.Packages.Select(p=>p.Sha256).SequenceEqual(packagedAgain.Manifest.Packages.Select(p=>p.Sha256)),"unchanged package archive hashes stable across fixture versions");
+ var licensedImport=new InstallManager(Path.Combine(folder,"licensed-import"),publicKey,client,saves);handler.Requests.Clear();
+ await licensedImport.InstallAsync(packaged,importRoot,null,CancellationToken.None);
+ Assert(handler.Requests.Count==0,"publisher package import reuses verified models and license notices");
  var transport=Pack("model","genesis.gguf",RandomNumberGenerator.GetBytes(1000000),"fixture-tls");
  var transportBody=handler.Data[transport.Url];
  using(var https=new HttpsFixture(transportBody)) using(var network=new DownloadClient(https.Handler())) {

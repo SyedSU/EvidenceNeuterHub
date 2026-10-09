@@ -19,7 +19,10 @@ sealed class HttpsFixture : IDisposable
         this.body = body; this.delay = delay; this.truncate = truncate;
         using var key = RSA.Create(2048);
         var request = new CertificateRequest("CN=github.com", key, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
-        certificate = request.CreateSelfSigned(DateTimeOffset.UtcNow.AddMinutes(-1), DateTimeOffset.UtcNow.AddHours(1));
+        using var generated = request.CreateSelfSigned(DateTimeOffset.UtcNow.AddMinutes(-1), DateTimeOffset.UtcNow.AddHours(1));
+        // Schannel requires a provider-backed key, not a CreateSelfSigned ephemeral handle.
+        // Do not PersistKeySet: disposing this imported test certificate removes its temporary key.
+        certificate = new X509Certificate2(generated.Export(X509ContentType.Pfx), "", X509KeyStorageFlags.UserKeySet | X509KeyStorageFlags.Exportable);
         listener.Start(); server = Serve();
     }
     public HttpMessageHandler Handler()
