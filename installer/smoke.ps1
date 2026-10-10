@@ -16,11 +16,17 @@ Add-Type -AssemblyName UIAutomationTypes
 Add-Type @'
 using System;
 using System.Runtime.InteropServices;
+using System.Text;
 public static class HubCapture {
  [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hwnd);
  [DllImport("user32.dll")] public static extern bool PrintWindow(IntPtr hwnd,IntPtr hdc,uint flags);
  [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr hwnd,out Rect rect);
  [DllImport("user32.dll")] public static extern bool MoveWindow(IntPtr hwnd,int x,int y,int w,int h,bool repaint);
+ [DllImport("user32.dll")] public static extern IntPtr GetDlgItem(IntPtr dialog,int id);
+ [DllImport("user32.dll",CharSet=CharSet.Unicode)] private static extern int GetWindowText(IntPtr window,StringBuilder text,int count);
+ [DllImport("user32.dll")] public static extern bool IsWindowEnabled(IntPtr window);
+ [DllImport("user32.dll")] public static extern IntPtr SendMessage(IntPtr window,uint message,IntPtr wparam,IntPtr lparam);
+ public static string Caption(IntPtr window){var text=new StringBuilder(256);GetWindowText(window,text,text.Capacity);return text.ToString();}
  public struct Rect {public int Left,Top,Right,Bottom;}
 }
 '@
@@ -102,15 +108,16 @@ try {
   if($wizard.MainWindowHandle -eq 0){continue}
   $ui=[System.Windows.Automation.AutomationElement]::FromHandle($wizard.MainWindowHandle)
   [void]$wizardTrace.Add("window=$($ui.Current.Name),pid=$($ui.Current.ProcessId)")
-  $buttons=$ui.FindAll([System.Windows.Automation.TreeScope]::Descendants,(New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::ControlTypeProperty,[System.Windows.Automation.ControlType]::Button)))
-  foreach($button in $buttons) {
-   $name=$button.Current.Name.Replace('&','').Trim()
-   [void]$wizardTrace.Add("button=$name,enabled=$($button.Current.IsEnabled)")
-   if($button.Current.IsEnabled -and $name -in @('Next >','Install','Finish')) {
-    if($name -eq 'Finish'){$finished=$true}
-    $pattern=$button.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern)
-    $pattern.Invoke();break
-   }
+  # NSIS native dialog buttons did not expose UIAutomation Button providers on the runner.
+  # Read the real IDOK control caption and enabled state before invoking its native click.
+  $next=[HubCapture]::GetDlgItem($wizard.MainWindowHandle,1)
+  $name=[HubCapture]::Caption($next).Replace('&','').Trim()
+  $enabled=[HubCapture]::IsWindowEnabled($next)
+  [void]$wizardTrace.Add("native IDOK=$name,enabled=$enabled")
+  if($enabled -and ($name -match '^Next\s*>?$' -or $name -in @('Install','Finish'))) {
+   if($name -eq 'Finish'){$finished=$true}
+   [void][HubCapture]::SetForegroundWindow($wizard.MainWindowHandle)
+   [void][HubCapture]::SendMessage($next,0xF5,[IntPtr]::Zero,[IntPtr]::Zero)
   }
  }
  if(!$finished){
