@@ -95,14 +95,17 @@ $wizard=Start-Process $exe -ArgumentList "/D=$guiTarget" -PassThru
 $finishHub=$null
 try {
  $finished=$false
+ $wizardTrace=[System.Collections.Generic.HashSet[string]]::new()
  for($i=0;$i -lt 240;$i++) {
   Start-Sleep -Milliseconds 250;$wizard.Refresh()
   if($wizard.HasExited){if(!$finished){throw 'Installer exited before interactive Finish'};break}
   if($wizard.MainWindowHandle -eq 0){continue}
   $ui=[System.Windows.Automation.AutomationElement]::FromHandle($wizard.MainWindowHandle)
+  [void]$wizardTrace.Add("window=$($ui.Current.Name),pid=$($ui.Current.ProcessId)")
   $buttons=$ui.FindAll([System.Windows.Automation.TreeScope]::Descendants,(New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::ControlTypeProperty,[System.Windows.Automation.ControlType]::Button)))
   foreach($button in $buttons) {
    $name=$button.Current.Name.Replace('&','').Trim()
+   [void]$wizardTrace.Add("button=$name,enabled=$($button.Current.IsEnabled)")
    if($button.Current.IsEnabled -and $name -in @('Next >','Install','Finish')) {
     if($name -eq 'Finish'){$finished=$true}
     $pattern=$button.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern)
@@ -110,7 +113,14 @@ try {
    }
   }
  }
- if(!$finished){throw 'Interactive Finish button was not reached'}
+ if(!$finished){
+  if($wizard.MainWindowHandle -ne 0){Capture-Hub $wizard.MainWindowHandle 'installer-timeout'}
+  $desktop=[System.Windows.Automation.AutomationElement]::RootElement.FindAll([System.Windows.Automation.TreeScope]::Children,[System.Windows.Automation.Condition]::TrueCondition)
+  foreach($window in $desktop){[void]$wizardTrace.Add("desktop=$($window.Current.Name),pid=$($window.Current.ProcessId),handle=$($window.Current.NativeWindowHandle)")}
+  $trace=$wizardTrace -join ' | '
+  $trace | Out-File artifacts/installer-ui-trace.log
+  throw "Interactive Finish button was not reached; process=$($wizard.Id),handle=$($wizard.MainWindowHandle); $trace"
+ }
  for($i=0;$i -lt 60;$i++) {
   Start-Sleep -Milliseconds 250
   $finishHub=Get-Process -Name EvidenceNeuterHub -ErrorAction SilentlyContinue | Where-Object {$_.Path -eq "$guiTarget\EvidenceNeuterHub.exe"} | Select-Object -First 1
