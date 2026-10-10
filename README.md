@@ -1,29 +1,32 @@
 # Evidence Neuter Hub
 
-Native Windows desktop Hub, **0.2.0 preview**. End users need no developer tools, account, paid AI API, or GitHub credentials.
+Native WinForms desktop Hub, **0.3.0 development preview**. No account, developer tools or paid AI API is required for imported/offline Play.
 
-Discover, My Library, Downloads and Settings retain the 0.1.0 interface. Existing installations can still be located and played offline. Five future apps remain **In development**. Genesis installation/update now uses signed metadata and separate game/runtime/model packages, with byte progress, cancellation, verified file reuse, staging, saved version detection, save backups and explicit rollback.
+Discover features a genuine Genesis workshop capture, product information and availability from the shared schema1 catalog. My Library distinguishes signed managed versions from unverified imports and shows location/runtime/model readiness. Downloads reports actual bytes and measured speed, cancellation and actionable failures. Settings includes dark/light forest/cream/brass appearance, reduced motion, installation location for new managed installs and generated cache/staging cleanup. Ctrl+1–4 navigates the four main pages; Tab moves through native controls. High DPI uses PerMonitorV2; real laptop acceptance remains required.
 
 ## Availability and trust
 
-No public Genesis releases currently exist. Production installation requires the release public key pinned in the Hub build and the matching signed public catalog. Without a configured key the Hub clearly refuses online installation rather than trusting remote checksums/keys. Existing imported games still launch and are explicitly marked version unverified. An unsigned local SHA256SUMS file is not authentication.
+The bundled catalog is explicitly **unsigned development data** and cannot authorize downloads. Online refresh requires separately build-pinned catalog public key and URL. An approved authenticated catalog must match the separately verified Genesis component manifest or Hub installer manifest. Missing trust configuration fails closed. Repository production configuration was not inspected successfully; local builds have no production key/publisher supplied.
+
+Genesis keeps the exact 0.2 schema1 signed package format and separate game/runtime/model transfers, verified reuse, staged activation, save backups, offline verification and same-save-schema rollback. New Genesis 0.4 profiles use saveSchema4. The reviewed managed Genesis0.3.0 epoch1 →0.4.0 epoch4 transition backs up the entire save tree. In Genesis select **Import legacy workshop (keep original)** to create a separate profile; Continue does not automatically import old state. Other cross-epoch transitions and rollback remain blocked. Imported older games remain playable, explicitly unverified. Genesis performs read-only legacy profile imports; Hub does not rewrite them.
+
+Hub self-update stages a signed, hashed, known-Authenticode-publisher installer. On explicit user confirmation, a **separate copied bootstrapper** authenticates the exact originating Hub process, waits for it to exit, reverifies metadata/installer/Windows trust and opens the installer wizard. The Hub never replaces its own running executable. The bootstrapper refuses missing production key/publisher, expired/replayed/incompatible metadata, another running installed Hub, signature/byte/publisher failure and an installed version mismatch. It never claims installation completion merely because staging or process launch succeeded.
 
 ## Use
 
-Install `EvidenceNeuterHub-Setup-0.2.0.exe`. Start Menu and optional desktop shortcuts are supported. **Locate/Import Genesis folder** selects a folder with `EvidenceGenesis.exe` and preserves the original files. **Downloads → Check Genesis releases** verifies deployed signed metadata. **Install/update** reuses matching imported or managed components, downloads only missing components, stages a complete version and switches the active pointer after verification and save backup. **Play** verifies managed files offline before launch. **Roll back** selects the retained previous same-save-schema version; it never restores or deletes your saves.
+Install the private test artifact `EvidenceNeuterHub-Setup-0.3.0.exe`. **My Library → Locate Genesis folder** connects an extracted installation without altering it. **Settings → Refresh signed product catalog** uses configured production trust; **Downloads → Check Genesis releases** requires an approved signed catalog. Play verifies managed files again offline; imports remain unverified. Rollback preserves personal saves and the highest accepted sequence.
 
-Game files and save backups: `%LOCALAPPDATA%/EvidenceNeuterHub/Genesis`. Genesis saves remain in `%APPDATA%/EvidenceGenesis`. Preferences remain in `%LOCALAPPDATA%/EvidenceNeuterHub/settings.json`. Corrupt preferences are preserved. Updates are blocked while Genesis runs. Close the game and wait for cancellation cleanup before closing Hub. Canceled transfers restart; copies of verified unchanged models require staging disk space but no repeated model download. Hub self-update and save-schema migrations are not implemented.
+Default managed game files: `%LOCALAPPDATA%/EvidenceNeuterHub/Genesis`. Preferences: `%LOCALAPPDATA%/EvidenceNeuterHub/settings.json`. Genesis profiles: `%APPDATA%/EvidenceGenesis`; whole-tree backups remain local under managed `save-backups`. Hub update stages: `%LOCALAPPDATA%/EvidenceNeuterHub/HubUpdates`. Settings corruption preserves the original file and disables preference writes. Storage cleanup never removes active/previous versions, original imports or personal saves.
 
-## Build/test
+## Build and tests
 
-Build dependencies only: .NET SDK 8 and NSIS 3.11. Windows: `./installer/build.ps1`. Optional public trust variable: `GENESIS_RELEASE_PUBLIC_KEY_PEM` (public PEM only). It is embedded at build time, never accepted from downloaded metadata. CI creates a private downloadable Windows test installer and runs install/window/uninstall smoke checks.
+Windows build: .NET SDK8 and NSIS3.11, then `./installer/build.ps1`. Build-time public configuration only: `GENESIS_RELEASE_PUBLIC_KEY_PEM`, `CATALOG_RELEASE_PUBLIC_KEY_PEM`, `CATALOG_URL`, `HUB_RELEASE_PUBLIC_KEY_PEM`, `HUB_PUBLISHER_SHA256`. No remote key or publisher certificate pin is trusted. Signing private keys must remain in protected signing infrastructure.
 
-`dotnet run --project tests/CoreTests.csproj -c Release`
+```
+dotnet run --project tests/CoreTests.csproj -c Release
+dotnet run --project tests/UpdaterTests/UpdaterTests.csproj -c Release
+dotnet build src/Hub.csproj -c Release
+dotnet build tools/bootstrap/Bootstrap.csproj -c Release
+```
 
-`dotnet run --project tests/UpdaterTests/UpdaterTests.csproj -c Release`
-
-`dotnet build tools/release/ReleaseTool.csproj -c Release`
-
-Updater tests use ephemeral signing keys and synthetic test packages. Their test version numbers are not published Genesis releases. Optional real-package validation is documented in the validation record. Test installers remain unsigned unless a separate Authenticode signing service is configured.
-
-See [release operations and secure configuration](docs/RELEASE-OPERATIONS.md), [implementation plan](docs/INSTALLER-PLAN.md), [validation](docs/VALIDATION.md), [website handoff](docs/WEBSITE-INTEGRATION.md), and [updater roadmap](docs/UPDATER.md). Website source is unchanged; no public release is published by this change.
+Tests use ephemeral RSA keys, synthetic packages and a real loopback TLS transfer. They are not published releases or gameplay benchmarks. CI produces a private Windows installer, test logs and real screenshots of four pages plus resize; these are evidence of native startup/navigation, not proof of high-DPI laptop, production publisher or real gameplay acceptance. See [operations](docs/RELEASE-OPERATIONS.md) and [validation](docs/VALIDATION.md). Existing PR1 remains the foundation dependency; no merge, public release or deployment is performed.

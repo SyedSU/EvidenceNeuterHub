@@ -23,7 +23,7 @@ var exe = new byte[128]; exe[0]=0x4d; exe[1]=0x5a; exe[60]=64; exe[64]=0x50; exe
 var handler = new PackagesHandler();
 ReleasePackage Pack(string kind, string name, byte[] content, string tag) {
  using var output=new MemoryStream();
- using(var zip=new ZipArchive(output,ZipArchiveMode.Create,true)) { using var entry=zip.CreateEntry(name).Open(); entry.Write(content); }
+ using(var zip=new ZipArchive(output,ZipArchiveMode.Create,true)) { var entry=zip.CreateEntry(name);entry.LastWriteTime=new DateTimeOffset(2020,1,1,0,0,0,TimeSpan.Zero);using var stream=entry.Open();stream.Write(content); }
  var data=output.ToArray(); var url="https://github.com/SyedSU/EvidenceNeuter-Releases/releases/download/"+tag+"/"+kind+".zip";
  handler.Data[url]=data;
  return new(kind,url,data.Length,Hash(data),new[]{new ReleaseFile(name,content.Length,Hash(content))});
@@ -35,6 +35,49 @@ var saves=Path.Combine(folder,"external-saves");Directory.CreateDirectory(saves)
 var manager=new InstallManager(Path.Combine(folder,"managed"),publicKey,client,saves);
 var first=Fixture("0.3.0",1);var envelope=Sign(first);
 try {
+ if(OperatingSystem.IsWindows()) {
+  var gameFixture=Path.GetFullPath("artifacts/gamefixture/EvidenceGenesis.exe");
+  using var running=System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(gameFixture){UseShellExecute=false}) ?? throw new Exception("Running-game fixture did not start");
+  try {await Task.Delay(100);await Reject(()=>manager.RollbackAsync(CancellationToken.None),"actual running game process blocks rollback");await Reject(()=>Task.Run(()=>manager.ClearDownloadStorage()),"actual running game process blocks storage cleanup");}
+  finally{if(!running.HasExited)running.Kill();await running.WaitForExitAsync();}
+ }else Console.WriteLine("SKIP Windows-only actual running-game process fixture; Windows CI executes it.");
+ var catalogPath=Path.Combine(AppContext.BaseDirectory,"development.json"); var devCatalog=File.ReadAllText(catalogPath);
+ Assert(Catalog.Parse(devCatalog,false).Products[0].SaveSchema==4,"canonical catalog saveSchema4");
+ await Reject(()=>Task.Run(()=>Catalog.ReleaseFor(Catalog.Parse(devCatalog,false),"genesis")),"blocked development catalog cannot authorize transfers");
+ await Reject(()=>Task.Run(()=>Catalog.Parse(devCatalog.Replace("\"publicDownloads\": false","\"publicDownloads\": true"),false)),"unsigned catalog cannot enable downloads");
+ await Reject(()=>Task.Run(()=>Catalog.Parse(devCatalog.Replace("\"schema\": 1","\"schema\": 1, \"unknown\": true"),false)),"catalog unknown fields rejected");
+ await Reject(()=>Task.Run(()=>Catalog.Parse(devCatalog.Replace("\"requirements\": [","\"missingRequirements\": ["),false)),"catalog required fields rejected");
+ Assert(Catalog.Parse(devCatalog.Replace("\"screenshots\": []","\"screenshots\": [{\"url\":\"/assets/workshop.png\",\"alt\":\"Actual capture\"}]").Replace("\"licenseNotices\": []","\"licenseNotices\": [{\"name\":\"Notice\",\"url\":\"/licenses/genesis.txt\"}]"),false).Products.Count==6,"catalog accepts safe root-relative assets and notices");
+ foreach(var unsafeUrl in new[]{"//evil.test/a","/assets/%2e%2e/x","/assets/%2f%2fevil","https://github.com/SyedSU/EvidenceNeuter-Releases/releases/download/genesis-stable/image.png"})await Reject(()=>Task.Run(()=>Catalog.Parse(devCatalog.Replace("\"screenshots\": []","\"screenshots\": [{\"url\":\""+unsafeUrl+"\",\"alt\":\"capture\"}]"),false)),"catalog unsafe asset URL "+unsafeUrl);
+ var catPayload=Encoding.UTF8.GetBytes(devCatalog);var catEnvelope=JsonSerializer.Serialize(new SignedRelease(Convert.ToBase64String(catPayload),Convert.ToBase64String(key.SignData(catPayload,HashAlgorithmName.SHA256,RSASignaturePadding.Pss))),Metadata.Json);
+ Assert(Catalog.Verify(catEnvelope,publicKey,0).Products.Count==6,"signed catalog distinct from Genesis manifest");
+ await Reject(()=>Task.Run(()=>Catalog.Verify(catEnvelope,publicKey,2)),"catalog replay rejected");
+ await Reject(()=>Task.Run(()=>Catalog.Verify(catEnvelope,"",0)),"catalog missing key fails closed");
+ var development=Catalog.Parse(devCatalog,false);var approvedGenesis=development.Products[0] with{Availability="available",Version="0.4.0",SourceCommit=new string('a',40),Release=new CatalogRelease("https://github.com/SyedSU/EvidenceNeuter-Releases/releases/download/genesis-v0.4.0/manifest.json","0.4.0",new string('a',40),"windows-x64",null)};
+ var approved=development with{PublicDownloads=true,Expires=DateTimeOffset.UtcNow.AddDays(1),ReleaseGate=new CatalogGate("approved",Array.Empty<string>(),true,true,true,true,true),Products=development.Products.Select(p=>p.Id=="genesis"?approvedGenesis:p).ToList()};
+ await Reject(()=>Task.Run(()=>Catalog.ReleaseFor(approved with{Expires=DateTimeOffset.UtcNow.AddSeconds(-1)},"genesis")),"previously approved expired catalog cannot authorize new transfers");
+ await Reject(()=>Task.Run(()=>Catalog.MatchGenesis(approved,first)),"signed Genesis manifest must match catalog version and save epoch");
+ var selection=new GenesisReleaseSelection();await Reject(()=>Task.Run(()=>selection.Check(approved,envelope,manager)),"mismatched signed release cannot become an install candidate");Assert(selection.Candidate is null,"mismatch leaves no install candidate");
+ var matching=approved with{Products=approved.Products.Select(p=>p.Id=="genesis"?p with{Version=first.Version,SaveSchema=first.SaveSchema,Release=p.Release! with{Version=first.Version}}:p).ToList()};selection.Check(matching,envelope,manager);Assert(selection.Candidate is not null,"matching approved release becomes an install candidate");
+ await Reject(()=>Task.Run(()=>selection.RequireCurrent(development,manager)),"refreshed blocked catalog invalidates checked candidate");Assert(selection.Candidate is null,"blocked catalog leaves no install candidate");
+ var hubManifest = new HubManifest(1,"hub","stable","windows-x64","0.3.1",1,DateTimeOffset.UtcNow.AddDays(1),new string('a',40),"0.2.0",19041,new HubInstaller("https://github.com/SyedSU/EvidenceNeuter-Releases/releases/download/hub-v0.3.1/setup.exe",exe.Length,Hash(exe),new string('A',64)));
+ string HubSign(HubManifest value) { var data=JsonSerializer.SerializeToUtf8Bytes(value,Metadata.Json);return JsonSerializer.Serialize(new SignedRelease(Convert.ToBase64String(data),Convert.ToBase64String(key.SignData(data,HashAlgorithmName.SHA256,RSASignaturePadding.Pss))),Metadata.Json); }
+ var hubEnvelope=HubSign(hubManifest);
+ Assert(HubUpdate.Verify(hubEnvelope,publicKey,new string('A',64),0,19041).Version=="0.3.1","Hub signed manifest verified");
+ await Reject(()=>Task.Run(()=>HubUpdate.Verify(hubEnvelope,"",new string('A',64),0,19041)),"Hub missing key fails closed");
+ await Reject(()=>Task.Run(()=>HubUpdate.Verify(hubEnvelope,publicKey,"",0,19041)),"Hub missing publisher fails closed");
+ await Reject(()=>Task.Run(()=>HubUpdate.Verify(hubEnvelope,publicKey,new string('B',64),0,19041)),"Hub arbitrary publisher rejected");
+ await Reject(()=>Task.Run(()=>HubUpdate.Verify(HubSign(hubManifest with {Expires=DateTimeOffset.UtcNow.AddSeconds(-1)}),publicKey,new string('A',64),0,19041)),"Hub expired metadata rejected");
+ await Reject(()=>Task.Run(()=>HubUpdate.Verify(hubEnvelope,publicKey,new string('A',64),1,19041)),"Hub replay rejected");
+ await Reject(()=>Task.Run(()=>HubUpdate.Verify(hubEnvelope,publicKey,new string('A',64),0,18000)),"Hub Windows requirement enforced");
+ await Reject(()=>Task.Run(()=>HubUpdate.Verify(HubSign(hubManifest with {MinimumHubVersion="9.0.0"}),publicKey,new string('A',64),0,19041)),"Hub minimum version enforced");
+ await Reject(()=>Task.Run(()=>HubUpdate.Verify(HubSign(hubManifest with {Version="0.2.0"}),publicKey,new string('A',64),0,19041)),"Hub downgrade rejected");
+ var damaged=JsonSerializer.Deserialize<SignedRelease>(hubEnvelope,Metadata.Json)!; var damagedBytes=Convert.FromBase64String(damaged.Payload);damagedBytes[20]^=1;
+ await Reject(()=>Task.Run(()=>HubUpdate.Verify(JsonSerializer.Serialize(damaged with {Payload=Convert.ToBase64String(damagedBytes)},Metadata.Json),publicKey,new string('A',64),0,19041)),"Hub payload tamper rejected");
+ var installerPath=Path.Combine(folder,"hub-setup.exe");File.WriteAllBytes(installerPath,exe);
+ await Reject(()=>HubUpdate.VerifyInstallerAsync(hubManifest,installerPath,CancellationToken.None),"unsigned fixture installer never executes");
+ File.AppendAllText(installerPath,"tamper");
+ await Reject(()=>HubUpdate.VerifyInstallerAsync(hubManifest,installerPath,CancellationToken.None),"staged Hub installer tamper rejected");
  Assert(Metadata.Verify(envelope,publicKey).Manifest.Version=="0.3.0","signature and version verified");
  await Reject(()=>Task.Run(()=>Metadata.Verify(envelope,"")),"missing production trust fails closed");
  using(var other=RSA.Create(3072)) await Reject(()=>Task.Run(()=>Metadata.Verify(envelope,other.ExportSubjectPublicKeyInfoPem())),"wrong signing key");
@@ -49,6 +92,7 @@ try {
  await manager.InstallAsync(envelope,null,progress,CancellationToken.None);
  Assert(handler.Requests.Count==3,"three real component transfer pipelines");
  Assert(reports.Any(p=>p.Phase=="Downloading" && p.Bytes>0 && p.Total>0),"actual byte progress");
+ Assert(reports.Any(p=>p.BytesPerSecond>0),"download speed measured from transferred bytes");
  var current=await manager.CurrentAsync(CancellationToken.None);Assert(current is not null && current.HasModel && current.HasRuntime,"complete installed layout and offline verification");
  Assert(manager.State().HighestSequence==1,"activation persists sequence");
  Assert(File.ReadAllText(Path.Combine(saves,"save.json"))=="personal save","save original untouched");
@@ -84,6 +128,34 @@ try {
  Assert(File.ReadAllText(Path.Combine(saves,"save.json"))=="personal save","rollback preserves saves");
  var game=await manager.CurrentAsync(CancellationToken.None);File.AppendAllText(game!.Executable,"tamper");
  await Reject(()=>manager.CurrentAsync(CancellationToken.None),"offline tampering detected before Play");
+ // Fresh schema4 profile can install and reuse unchanged components on same-schema update.
+ var epoch4=new InstallManager(Path.Combine(folder,"schema4"),publicKey,client,saves);var fourth=Fixture("0.4.0",4) with{SaveSchema=4,MinimumHubVersion="0.3.0"};
+ await epoch4.InstallAsync(Sign(fourth),null,null,CancellationToken.None);handler.Requests.Clear();
+ await epoch4.InstallAsync(Sign(fourth with{Version="0.4.1",Sequence=5}),null,null,CancellationToken.None);
+ Assert(handler.Requests.Count==0,"schema4 update reuses all verified components");
+ await Reject(()=>epoch4.InstallAsync(Sign(Fixture("0.4.2",6) with{SaveSchema=1}),null,null,CancellationToken.None),"schema4 cannot migrate to epoch1");
+ await Reject(()=>Task.Run(()=>InstallManager.RequireSpace(1024,1023)),"low disk policy refuses insufficient staging space");
+ InstallManager.RequireSpace(1024,1024);Assert(true,"exact required disk space accepted");
+ var interrupted=Path.Combine(epoch4.Root,"staging",Guid.NewGuid().ToString("N"));Directory.CreateDirectory(interrupted);File.WriteAllText(Path.Combine(interrupted,"orphan"),"partial");
+ await epoch4.InstallAsync(Sign(fourth with{Version="0.4.2",Sequence=6}),null,null,CancellationToken.None);
+ Assert(!Directory.Exists(interrupted) && epoch4.State().HighestSequence==6,"interrupted staging recovered before activation");
+ var nestedImport=Path.Combine(folder,"nested-import");Directory.CreateDirectory(Path.Combine(nestedImport,"EvidenceGenesis"));
+ foreach(var package in fourth.Packages)foreach(var file in package.Files){var path=Path.Combine(nestedImport,"EvidenceGenesis",Metadata.Mount(package.Kind),file.Path);Directory.CreateDirectory(Path.GetDirectoryName(path)!);using var z=new ZipArchive(new MemoryStream(handler.Data[package.Url]));using var input=z.GetEntry(file.Path)!.Open();using var output=File.Create(path);input.CopyTo(output);}
+ var nestedManager=new InstallManager(Path.Combine(folder,"nested-managed"),publicKey,client,saves);handler.Requests.Clear();await nestedManager.InstallAsync(Sign(fourth),nestedImport,null,CancellationToken.None);
+ Assert(handler.Requests.Count==0,"documented nested import layout reuses verified files");
+ var legacy=new InstallManager(Path.Combine(folder,"legacy-forward"),publicKey,client,saves);await legacy.InstallAsync(envelope,null,null,CancellationToken.None);var legacySave=Path.Combine(saves,"workshop.json");File.WriteAllText(legacySave,"legacy original preserved");handler.Requests.Clear();
+ await legacy.InstallAsync(Sign(fourth),null,null,CancellationToken.None);
+ Assert(Metadata.Verify(legacy.State().Current!.Envelope,publicKey,offlineInstalled:true).Manifest.SaveSchema==4,"reviewed Genesis0.3 epoch1 to0.4 epoch4 forward transition activates");
+ Assert(File.ReadAllText(legacySave)=="legacy original preserved" && Directory.GetFiles(Path.Combine(legacy.Root,"save-backups"),"workshop.json",SearchOption.AllDirectories).Length==1,"forward transition backs up and preserves original legacy profile");
+ Assert(handler.Requests.Count==1,"legacy forward transition reuses verified unchanged runtime and model");
+ await Reject(()=>legacy.RollbackAsync(CancellationToken.None),"forward transition cannot roll back to legacy save epoch");
+ await Reject(()=>epoch4.InstallAsync(Sign(fourth with{Version="0.4.3",Sequence=7}),null,null,CancellationToken.None,()=>throw new IOException("Catalog authorization expired before activation")),"final catalog authorization checked before activation");
+ Assert(epoch4.State().HighestSequence==6,"failed activation authorization preserves previous pointer and sequence");
+ var cacheFile=Path.Combine(epoch4.Root,"cache","test.cache");File.WriteAllText(cacheFile,"cache");
+ epoch4.ClearDownloadStorage();Assert(!File.Exists(cacheFile) && epoch4.State().Current is not null && File.Exists(Path.Combine(saves,"save.json")),"storage cleanup preserves active version and personal saves");
+ using(var held=new FileStream(Path.Combine(epoch4.Root,"install.lock"),FileMode.Open,FileAccess.ReadWrite,FileShare.None))await Reject(()=>Task.Run(()=>epoch4.ClearDownloadStorage()),"storage cleanup obeys operation lock");
+ var malicious=new InstallManager(Path.Combine(folder,"malicious-state"),publicKey,client,saves);Directory.CreateDirectory(malicious.Root);File.WriteAllText(Path.Combine(malicious.Root,"active.json"),"{\"current\":{\"directory\":\"../outside\",\"envelope\":\"untrusted\"},\"highestSequence\":0}");
+ await Reject(()=>Task.Run(()=>malicious.ClearDownloadStorage()),"storage cleanup rejects malicious active state");
  // Import a full trusted fixture from a separate folder; reuse by hashes, not an unsigned local version label.
  var importRoot=Path.Combine(folder,"import");Directory.CreateDirectory(importRoot);
  foreach(var package in first.Packages)foreach(var file in package.Files){var path=Path.Combine(importRoot,Metadata.Mount(package.Kind),file.Path);Directory.CreateDirectory(Path.GetDirectoryName(path)!);using var z=new ZipArchive(new MemoryStream(handler.Data[package.Url]));using var input=z.GetEntry(file.Path)!.Open();using var output=File.Create(path);input.CopyTo(output);}
@@ -107,6 +179,7 @@ try {
  var packaged=await PackageTool(Path.Combine(folder,"publisher-one"),"0.3.0",1);
  var packagedRelease=Metadata.Verify(packaged,publicKey);
  Assert(packagedRelease.Manifest.Packages.Length==3,"publisher emits signed separate components");
+ Assert(packagedRelease.Manifest.SaveSchema==4 && packagedRelease.Manifest.MinimumHubVersion=="0.3.0","publisher binds saveSchema4 and Hub0.3 minimum");
  var packagedAgain=Metadata.Verify(await PackageTool(Path.Combine(folder,"publisher-two"),"0.3.1",2),publicKey);
  Assert(packagedRelease.Manifest.Packages.Select(p=>p.Sha256).SequenceEqual(packagedAgain.Manifest.Packages.Select(p=>p.Sha256)),"unchanged package archive hashes stable across fixture versions");
  var licensedImport=new InstallManager(Path.Combine(folder,"licensed-import"),publicKey,client,saves);handler.Requests.Clear();

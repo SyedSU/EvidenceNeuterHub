@@ -39,8 +39,8 @@ foreach(var kind in new[]{"game","runtime","model"}){
  packages.Add(new(kind,"https://github.com/SyedSU/EvidenceNeuter-Releases/releases/download/"+tag+"/"+asset,new FileInfo(final).Length,hash,
   entries.Select(e=>new ReleaseFile(e.Relative,new FileInfo(e.Source).Length,Digest(e.Source))).ToArray()));
 }
-// Current Genesis schema: workshop saves. Future migrations require a reviewed Hub change.
-var manifest=new ReleaseManifest(1,"genesis","stable","windows-x64",version,sequence,DateTimeOffset.UtcNow.AddDays(30),"0.2.0",1,commit,packages.ToArray());
+// Genesis0.4 compatibility epoch4: profile saves/internal statev4; no automatic cross-epoch migration.
+var manifest=new ReleaseManifest(1,"genesis","stable","windows-x64",version,sequence,DateTimeOffset.UtcNow.AddDays(30),"0.3.0",4,commit,packages.ToArray());
 var payload=JsonSerializer.SerializeToUtf8Bytes(manifest,Metadata.Json);
 var signed=JsonSerializer.Serialize(new SignedRelease(Convert.ToBase64String(payload),Convert.ToBase64String(rsa.SignData(payload,HashAlgorithmName.SHA256,RSASignaturePadding.Pss))),Metadata.Json);
 Metadata.Verify(signed,publicPem);

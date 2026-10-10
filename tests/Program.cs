@@ -8,6 +8,8 @@ void Reject(Action action) { try { action(); } catch (IOException) { passed++; r
 try {
  var store = new SettingsStore(Path.Combine(root,"preferences","settings.json"));
  Check(store.Load() == new HubSettings());
+ var appearance = new HubSettings(Appearance:"Light", ReduceMotion:true, InstallLocation:Path.Combine(root,"storage"));store.Save(appearance);Check(store.Load()==appearance);
+ File.WriteAllText(Path.Combine(root,"preferences","settings.json"),"{\"Appearance\":\"Purple\"}");Reject(()=>store.Load());
  var setting = new HubSettings(root,true); store.Save(setting); Check(store.Load()==setting);
  store.Save(setting with { MinimizeOnPlay=false }); Check(!store.Load().MinimizeOnPlay);
  Reject(()=>Genesis.Detect(Path.Combine(root,"absent"))); Reject(()=>Genesis.Detect(root));

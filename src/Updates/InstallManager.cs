@@ -9,7 +9,18 @@ public sealed class InstallManager(string root, string publicKey, DownloadClient
 {
     public string Root => root;
     string StatePath => Path.Combine(root, "active.json");
-    public InstallState State() => File.Exists(StatePath) ? JsonSerializer.Deserialize<InstallState>(File.ReadAllText(StatePath), Metadata.Json) ?? throw new IOException("Invalid installation state.") : new();
+    public InstallState State()
+    {
+        RejectLinks(root); RejectLinks(StatePath);
+        var state = File.Exists(StatePath) ? JsonSerializer.Deserialize<InstallState>(File.ReadAllText(StatePath), Metadata.Json) ?? throw new IOException("Invalid installation state.") : new();
+        if (state.HighestSequence < 0) throw new IOException("Invalid installation sequence.");
+        foreach (var version in new[] { state.Current, state.Previous }.Where(v => v is not null)) DirectoryFor(version!);
+        return state;
+    }
+    public static void RequireSpace(long required, long available)
+    {
+        if (required < 0 || available < required) throw new IOException("Not enough disk space to stage Genesis safely. Free storage or choose another new-install location.");
+    }
     public VerifiedRelease VerifyNew(string envelope)
     {
         var state = State(); var release = Metadata.Verify(envelope, publicKey, state.HighestSequence);
@@ -20,6 +31,26 @@ public sealed class InstallManager(string root, string publicKey, DownloadClient
             if (release.Manifest.Sequence == state.HighestSequence && release.Envelope != state.Current.Envelope && (state.Previous is null || release.Envelope != state.Previous.Envelope)) throw new IOException("Conflicting metadata for an accepted release sequence.");
         }
         return release;
+    }
+    public void ClearDownloadStorage()
+    {
+        using var guard = Lock(); EnsureStopped(); var state = State();
+        // Validate state before deleting any generated files; never touch versions or saves.
+        foreach (var version in new[] { state.Current, state.Previous }.Where(v => v is not null))
+        { DirectoryFor(version!); Metadata.Verify(version!.Envelope, publicKey, offlineInstalled: true); }
+        foreach (var name in new[] { "cache", "staging" })
+        {
+            var folder = Path.Combine(root, name); RejectLinks(folder);
+            if (!Directory.Exists(folder)) continue;
+            // Enumerate and reject every linked child before doing any deletion.
+            foreach (var entry in EnumerateFiles(folder)) RejectLinks(entry);
+            Directory.Delete(folder, true);
+        }
+    }
+    public long StorageBytes()
+    {
+        if (!Directory.Exists(root)) return 0;
+        RejectLinks(root); return EnumerateFiles(root).Sum(path => new FileInfo(path).Length);
     }
     public string DirectoryFor(InstalledVersion version)
     {
@@ -142,13 +173,14 @@ public sealed class InstallManager(string root, string publicKey, DownloadClient
         }
         if (seen.Count != expected.Count) throw new IOException("ZIP is missing declared files.");
     }
-    public async Task InstallAsync(string envelope, string? importedFolder, IProgress<TransferProgress>? progress, CancellationToken token)
+    public async Task InstallAsync(string envelope, string? importedFolder, IProgress<TransferProgress>? progress, CancellationToken token, Action? validateAuthorization = null)
     {
         using var guard = Lock(); EnsureStopped(); var verified = VerifyNew(envelope); var m = verified.Manifest; var state = State();
+        if (importedFolder is not null) importedFolder = Genesis.Detect(importedFolder).Folder;
         if (state.Current is not null)
         {
             var current = Metadata.Verify(state.Current.Envelope, publicKey, offlineInstalled: true).Manifest;
-            if (current.SaveSchema != m.SaveSchema) throw new IOException("Save-schema migration requires a separately reviewed migration. Your installation was not changed.");
+            if (current.SaveSchema != m.SaveSchema && !(current.SaveSchema == 1 && m.SaveSchema == 4 && current.Version == "0.3.0" && m.Version == "0.4.0" && Metadata.VersionOf(m.MinimumHubVersion) >= Metadata.VersionOf("0.3.0"))) throw new IOException("This save-schema transition is not reviewed. Only Genesis0.3.0 epoch1 to0.4.0 epoch4 is supported; legacy import is explicit and originals are preserved.");
             if (current.Sequence == m.Sequence && state.Current.Envelope == envelope) throw new IOException("This release is already installed.");
         }
         var stagingBase = Path.Combine(root, "staging"); Directory.CreateDirectory(stagingBase); RejectLinks(stagingBase);
@@ -160,7 +192,7 @@ public sealed class InstallManager(string root, string publicKey, DownloadClient
         try
         {
             var needed = m.Packages.Sum(p => p.Size + p.Files.Sum(f => f.Size));
-            if (new DriveInfo(Path.GetPathRoot(root)!).AvailableFreeSpace < needed + 64 * 1024 * 1024) throw new IOException("Not enough disk space to stage Genesis safely.");
+            RequireSpace(needed + 64 * 1024 * 1024, new DriveInfo(Path.GetPathRoot(root)!).AvailableFreeSpace);
             foreach (var package in m.Packages)
             {
                 token.ThrowIfCancellationRequested(); progress?.Report(new(package.Kind, 0, package.Size, "Verifying reusable files"));
@@ -195,7 +227,7 @@ public sealed class InstallManager(string root, string publicKey, DownloadClient
             }
             await VerifyFiles(m, stage, token); Genesis.Detect(stage); EnsureStopped();
             progress?.Report(new("saves", 0, 0, "Backing up existing saves")); await BackupSaves(token);
-            token.ThrowIfCancellationRequested(); Directory.CreateDirectory(Path.GetDirectoryName(final)!); RejectLinks(final);
+            token.ThrowIfCancellationRequested(); Metadata.Verify(envelope, publicKey, state.HighestSequence); validateAuthorization?.Invoke(); Directory.CreateDirectory(Path.GetDirectoryName(final)!); RejectLinks(final);
             Directory.Move(stage, final);
             // No awaits between final cancellation check and atomic activation.
             token.ThrowIfCancellationRequested(); WriteState(new(new(id, envelope), state.Current, Math.Max(state.HighestSequence, m.Sequence))); activated = true;

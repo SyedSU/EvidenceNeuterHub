@@ -1,3 +1,15 @@
+# Hub0.3 milestone validation — 2026-10-10
+
+Current branch Linux validation: **16 core assertions and99 updater assertions pass**; two actual running-game process assertions are explicitly Windows-only and run in CI after building a test-only EvidenceGenesis apphost. Hub and standalone bootstrapper cross-target builds pass with zero warnings/errors. `git diff --check` passes. No Linux visual/Authenticode/laptop acceptance is claimed.
+
+New coverage includes signed shared catalog parsing/required/unknown fields, blocked/unsigned/expired catalog authorization, safe root-relative/immutable asset URLs, manifest binding and invalidated release candidate, separate Hub key/publisher/expiry/replay/tamper/compatibility failures, unsigned/tampered installer rejection, actual measured speed, fresh saveSchema4 install/reuse, exact reviewed0.3.0 epoch1→0.4.0 epoch4 forward update with save preservation/backups/model reuse, forbidden cross-epoch rollback, low-disk policy, interrupted staging recovery, nested import reuse, lock-aware storage cleanup/malicious state and final activation authorization failure preserving pointer/sequence. ZIP fixtures use normalized timestamps to prevent wall-clock archive-byte drift.
+
+Windows workflow builds a self-contained private installer/bootstrapper, exercises actual process-name locking, install/window/navigation/resize/focus/uninstall preservation, checks installer refusal while Hub owns its named installation mutex, and uploads four page screenshots plus a resized capture and test logs. Run/artifact evidence is recorded in the review PR after CI completes. Windows screenshots come from Windows; genuine Genesis workshop artwork is separately a Linux Godot4.7.2 llvmpipe/template development capture, not Windows gameplay evidence.
+
+Production metadata/publisher bindings are not supplied locally; repository configuration inspection was denied. No public assets, production-signed happy path, target laptop gameplay/model benchmark, high-DPI device acceptance, power-loss durability, TUF, root rotation/revocation, transactional Hub rollback or automatic save rewrite is claimed. Review [operations](RELEASE-OPERATIONS.md) before any public gate/publication.
+
+## Historical0.2 foundation evidence
+
 # Validation record — 2026-10-09
 
 ## Executed in Linux cloud machine

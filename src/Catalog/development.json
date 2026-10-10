@@ -1,0 +1,147 @@
+{
+  "schema": 1,
+  "channel": "stable",
+  "sequence": 1,
+  "expires": "2026-11-08T00:00:00Z",
+  "publicDownloads": false,
+  "releaseGate": {
+    "status": "blocked",
+    "reasons": [
+      "Production trust key not provisioned",
+      "No public signed releases",
+      "Windows acceptance pending"
+    ],
+    "trustConfigured": false,
+    "signedArtifactsPublished": false,
+    "windowsAcceptancePassed": false,
+    "licensesApproved": false,
+    "authenticodeVerified": false
+  },
+  "infrastructure": {
+    "id": "hub",
+    "name": "Evidence Hub",
+    "availability": "development",
+    "version": "0.3.0",
+    "sourceCommit": null,
+    "release": null,
+    "screenshots": [],
+    "licenseNotices": [],
+    "description": "Install and launch approved Evidence products.",
+    "requirements": [
+      "Windows x64"
+    ],
+    "releaseNotes": []
+  },
+  "products": [
+    {
+      "id": "genesis",
+      "name": "Genesis",
+      "availability": "development",
+      "version": "0.4.0",
+      "saveSchema": 4,
+      "sourceCommit": null,
+      "components": {
+        "runtime": null,
+        "model": null
+      },
+      "release": null,
+      "screenshots": [],
+      "licenseNotices": [],
+      "description": "A teachable 2.5D AI companion game with local inference and user-controlled memory.",
+      "requirements": [
+        "Windows x64"
+      ],
+      "releaseNotes": []
+    },
+    {
+      "id": "lab",
+      "name": "Lab",
+      "availability": "planned",
+      "version": null,
+      "saveSchema": null,
+      "sourceCommit": null,
+      "components": {
+        "runtime": null,
+        "model": null
+      },
+      "release": null,
+      "screenshots": [],
+      "licenseNotices": [],
+      "description": "A local voice cloning, speech and audio studio.",
+      "requirements": [],
+      "releaseNotes": []
+    },
+    {
+      "id": "bot",
+      "name": "Bot",
+      "availability": "planned",
+      "version": null,
+      "saveSchema": null,
+      "sourceCommit": null,
+      "components": {
+        "runtime": null,
+        "model": null
+      },
+      "release": null,
+      "screenshots": [],
+      "licenseNotices": [],
+      "description": "A local wake-word device assistant.",
+      "requirements": [],
+      "releaseNotes": []
+    },
+    {
+      "id": "academy",
+      "name": "Academy",
+      "availability": "planned",
+      "version": null,
+      "saveSchema": null,
+      "sourceCommit": null,
+      "components": {
+        "runtime": null,
+        "model": null
+      },
+      "release": null,
+      "screenshots": [],
+      "licenseNotices": [],
+      "description": "An interactive AI learning application.",
+      "requirements": [],
+      "releaseNotes": []
+    },
+    {
+      "id": "flow",
+      "name": "Flow",
+      "availability": "planned",
+      "version": null,
+      "saveSchema": null,
+      "sourceCommit": null,
+      "components": {
+        "runtime": null,
+        "model": null
+      },
+      "release": null,
+      "screenshots": [],
+      "licenseNotices": [],
+      "description": "A visual workflow and automation builder.",
+      "requirements": [],
+      "releaseNotes": []
+    },
+    {
+      "id": "council",
+      "name": "Council",
+      "availability": "planned",
+      "version": null,
+      "saveSchema": null,
+      "sourceCommit": null,
+      "components": {
+        "runtime": null,
+        "model": null
+      },
+      "release": null,
+      "screenshots": [],
+      "licenseNotices": [],
+      "description": "A workspace with AI researcher, writer, reviewer and planner roles.",
+      "requirements": [],
+      "releaseNotes": []
+    }
+  ]
+}

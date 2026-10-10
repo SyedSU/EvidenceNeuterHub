@@ -2,7 +2,7 @@ using System.Diagnostics;
 using System.Text.Json;
 
 namespace EvidenceHub;
-public record HubSettings(string? GenesisFolder = null, bool MinimizeOnPlay = false);
+public record HubSettings(string? GenesisFolder = null, bool MinimizeOnPlay = false, string Appearance = "Dark", bool ReduceMotion = true, string? InstallLocation = null);
 public record Installation(string Folder, string Executable, bool HasRuntime, bool HasModel);
 public static class Genesis
 {
@@ -42,8 +42,11 @@ public sealed class SettingsStore(string path)
     public HubSettings Load()
     {
         if (!File.Exists(path)) return new();
-        return JsonSerializer.Deserialize<HubSettings>(File.ReadAllText(path))
+        var settings = JsonSerializer.Deserialize<HubSettings>(File.ReadAllText(path))
             ?? throw new IOException("Settings are empty. The original file has been preserved.");
+        if (settings.Appearance is not ("Dark" or "Light") || settings.InstallLocation is not null && !Path.IsPathFullyQualified(settings.InstallLocation))
+            throw new IOException("Settings contain an unsupported appearance or storage location. The original file has been preserved.");
+        return settings;
     }
     public void Save(HubSettings settings)
     {

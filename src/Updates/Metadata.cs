@@ -12,7 +12,7 @@ public record SignedRelease(string Payload, string Signature);
 public record VerifiedRelease(ReleaseManifest Manifest, string Envelope);
 public static class Metadata
 {
-    public const string HubVersion = "0.2.0";
+    public const string HubVersion = "0.3.0";
     public const string CatalogUrl = "https://github.com/SyedSU/EvidenceNeuter-Releases/releases/download/genesis-stable/genesis-stable.json";
     public const int MaxMetadataBytes = 2 * 1024 * 1024;
     public static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web) { UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow };
@@ -43,7 +43,7 @@ public static class Metadata
         long total = 0;
         foreach (var p in m.Packages)
         {
-            PackageUrl(p.Url); Hash(p.Sha256);
+            ImmutableUrl(p.Url); Hash(p.Sha256);
             if (p.Size < 1 || p.Size > 4L * 1024 * 1024 * 1024 || p.Files is null || p.Files.Length < 1 || p.Files.Length > 4096) throw new IOException("Package limits exceeded.");
             foreach (var f in p.Files)
             {
@@ -68,11 +68,18 @@ public static class Metadata
             s.Length == 0 || s is "." or ".." || s.EndsWith('.') || s.EndsWith(' ') || s.Any(c => c < 32 || "<>:\"|?*".Contains(c)) ||
             Regex.IsMatch(s, @"^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(\.|$)", RegexOptions.IgnoreCase))) throw new IOException("Unsafe package path.");
     }
+    public static Uri ImmutableUrl(string url)
+    {
+        var uri = PackageUrl(url); var tag = uri.AbsolutePath.Split('/')[5];
+        if (new[] { "latest", "stable", "genesis-stable", "hub-stable" }.Contains(tag, StringComparer.OrdinalIgnoreCase)) throw new IOException("Artifact URL must use an immutable release tag.");
+        return uri;
+    }
     public static Uri PackageUrl(string url)
     {
+        if (string.IsNullOrEmpty(url) || url.Contains('%') || url.Contains('\\') || url.Any(c => c < 32) || url.Contains("/../") || url.Contains("/./")) throw new IOException("Unsafe release URL.");
         var uri = new Uri(url, UriKind.Absolute);
         if (uri.Scheme != "https" || uri.Host != "github.com" || !uri.IsDefaultPort || uri.UserInfo.Length != 0 || uri.Query.Length != 0 || uri.Fragment.Length != 0 ||
-            !uri.AbsolutePath.StartsWith("/SyedSU/EvidenceNeuter-Releases/releases/download/", StringComparison.Ordinal)) throw new IOException("Package URL is outside the public releases repository.");
+            !uri.AbsolutePath.StartsWith("/SyedSU/EvidenceNeuter-Releases/releases/download/", StringComparison.Ordinal) || uri.AbsolutePath.Split('/').Length != 7 || uri.AbsolutePath.Split('/').Skip(1).Any(s => s.Length == 0 || s is "." or "..")) throw new IOException("Package URL is outside the public releases repository.");
         return uri;
     }
 }

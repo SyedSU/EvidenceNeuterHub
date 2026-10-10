@@ -19,13 +19,18 @@ jobs:
         run: ./installer/build.ps1
         env:
           GENESIS_RELEASE_PUBLIC_KEY_PEM: ${{ vars.GENESIS_RELEASE_PUBLIC_KEY_PEM }}
+          HUB_RELEASE_PUBLIC_KEY_PEM: ${{ vars.HUB_RELEASE_PUBLIC_KEY_PEM }}
+          HUB_PUBLISHER_SHA256: ${{ vars.HUB_PUBLISHER_SHA256 }}
+          CATALOG_RELEASE_PUBLIC_KEY_PEM: ${{ vars.CATALOG_RELEASE_PUBLIC_KEY_PEM }}
+          CATALOG_URL: ${{ vars.CATALOG_URL }}
       - shell: pwsh
         run: ./installer/smoke.ps1
       - uses: actions/upload-artifact@v4
         with:
-          name: EvidenceNeuterHub-Windows-0.2.0-test-installer
+          name: EvidenceNeuterHub-Windows-0.3.0-test-installer
           path: |
-            artifacts/EvidenceNeuterHub-Setup-0.2.0.exe
+            artifacts/EvidenceNeuterHub-Setup-0.3.0.exe
             artifacts/SHA256.txt
-            artifacts/windows-smoke.png
+            artifacts/windows-*.png
+            artifacts/*-tests.log
           if-no-files-found: error

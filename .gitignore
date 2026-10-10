@@ -3,3 +3,9 @@ obj/
 artifacts/
 installer/packaged-uninstall.nsh
 release-public.pem
+
+hub-release-public.pem
+hub-publisher.txt
+catalog-public.pem
+catalog-url.txt
+.superpowers/
