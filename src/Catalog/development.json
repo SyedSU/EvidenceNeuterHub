@@ -28,9 +28,15 @@
     "licenseNotices": [],
     "description": "Install and launch approved Evidence products.",
     "requirements": [
-      "Windows x64"
+      "Windows 10/11 x64 (development target).",
+      "Production downloads and self-update require independently reviewed release trust and an Authenticode publisher pin."
     ],
-    "releaseNotes": []
+    "releaseNotes": [
+      "Development preview adds the shared product catalog and release details.",
+      "Managed Genesis installs keep game, runtime and model separate and reuse verified unchanged components.",
+      "Imported installations remain playable offline; existing files and saves are preserved.",
+      "The separate Hub bootstrap updater requires signed metadata, a known publisher and protected release approval; production trust is not configured."
+    ]
   },
   "products": [
     {
@@ -49,9 +55,18 @@
       "licenseNotices": [],
       "description": "A teachable 2.5D AI companion game with local inference and user-controlled memory.",
       "requirements": [
-        "Windows x64"
+        "Windows 10/11 x64.",
+        "Hardware with an OpenGL 3.3 graphics driver.",
+        "Minimum CPU and RAM requirements have not been benchmarked; local AI speed depends on available hardware.",
+        "Bundled local AI may require the Microsoft Visual C++ x64 runtime; the official prerequisite download needs internet."
       ],
-      "releaseNotes": []
+      "releaseNotes": [
+        "Development version 0.4 adds a main menu and isolated named workshop profiles.",
+        "Explicit read-only import preserves legacy internal save versions 2/3 and their original workshop files.",
+        "Durable task history records completion, failure and cancellation; failed save writes roll back in-memory changes.",
+        "Document export includes Markdown and printable HTML with lists; PDF is available through the browser print dialog.",
+        "Profile saves use compatibility epoch 4; older releases cannot read new profiles, and cross-epoch rollback stays blocked."
+      ]
     },
     {
       "id": "lab",

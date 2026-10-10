@@ -1,4 +1,7 @@
 $ErrorActionPreference = 'Stop'
+$smokeStage = 'silent installation'
+trap { $detail = ("Stage: $smokeStage | " + $_.Exception.Message + " | line " + $_.InvocationInfo.ScriptLineNumber).Replace('%','%25').Replace("`r",'%0D').Replace("`n",'%0A'); Write-Output "::error title=Hub smoke failure::$detail"; throw }
+
 Set-Location "$PSScriptRoot/.."
 $target = Join-Path $env:TEMP ('hub-install-test-' + [guid]::NewGuid())
 $exe = (Resolve-Path artifacts/EvidenceNeuterHub-Setup-0.3.0.exe).Path
@@ -31,6 +34,7 @@ function Capture-Hub($window,$name) {
  $bitmap.Save((Join-Path (Get-Location) "artifacts/windows-$name.png"))
  $graphics.Dispose();$bitmap.Dispose()
 }
+$smokeStage = 'standalone bootstrap startup'
 # An isolated copy of only the bootstrap EXE must reach our own fail-closed handler.
 # Invalid DOTNET_ROOT bindings ensure this child cannot resolve the developer SDK path.
 $bootstrapStage=Join-Path $env:TEMP ('hub-bootstrap-test-' + [guid]::NewGuid())
@@ -49,6 +53,7 @@ try {
  for($i=0;$i -lt 60;$i++){Start-Sleep -Milliseconds 250;if(Test-Path $marker){$errorRecord=Get-Content $marker -Raw | ConvertFrom-Json;if($errorRecord.processId -eq $boot.Id -and $errorRecord.message -eq 'Invalid Hub handoff.'){$bootstrapReady=$true;break}};if($boot.HasExited){break}}
  if(!$bootstrapReady){throw 'Standalone bootstrap did not reach its own fail-closed handler without SDK bindings'}
 } finally {if(!$boot.HasExited){Stop-Process -Id $boot.Id};$boot.Dispose();Remove-Item $bootstrapStage -Recurse -Force}
+$smokeStage = 'native pages, resize and focus'
 $hub = $null
 try {
  $hub = Start-Process "$target/EvidenceNeuterHub.exe" -PassThru
@@ -83,4 +88,45 @@ if(Test-Path "$target/EvidenceNeuterHub.exe"){throw 'Uninstall failed'}
 if(!(Test-Path "$target/preserve-user-file.txt")){throw 'Uninstaller removed unrelated data'}
 if(Test-Path $shortcut){throw 'Uninstaller left shortcut'}
 Remove-Item "$target/preserve-user-file.txt"
-Write-Output 'PASS: installer/bootstrap package, native keyboard navigation on four pages, resized capture, focus, uninstall and unrelated-file preservation. Screenshot artifacts are Windows captures; real laptop/high-DPI/gameplay acceptance remains required.'
+# Exercise the real interactive Finish checkbox, not an artificial post-install Start.
+$smokeStage='interactive Finish launches Hub after guard release'
+$guiTarget=Join-Path $env:TEMP ('hub-finish-test-' + [guid]::NewGuid())
+$wizard=Start-Process $exe -ArgumentList "/D=$guiTarget" -PassThru
+$finishHub=$null
+try {
+ $finished=$false
+ for($i=0;$i -lt 240;$i++) {
+  Start-Sleep -Milliseconds 250;$wizard.Refresh()
+  if($wizard.HasExited){if(!$finished){throw 'Installer exited before interactive Finish'};break}
+  if($wizard.MainWindowHandle -eq 0){continue}
+  $ui=[System.Windows.Automation.AutomationElement]::FromHandle($wizard.MainWindowHandle)
+  $buttons=$ui.FindAll([System.Windows.Automation.TreeScope]::Descendants,(New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::ControlTypeProperty,[System.Windows.Automation.ControlType]::Button)))
+  foreach($button in $buttons) {
+   $name=$button.Current.Name.Replace('&','').Trim()
+   if($button.Current.IsEnabled -and $name -in @('Next >','Install','Finish')) {
+    if($name -eq 'Finish'){$finished=$true}
+    $pattern=$button.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern)
+    $pattern.Invoke();break
+   }
+  }
+ }
+ if(!$finished){throw 'Interactive Finish button was not reached'}
+ for($i=0;$i -lt 60;$i++) {
+  Start-Sleep -Milliseconds 250
+  $finishHub=Get-Process -Name EvidenceNeuterHub -ErrorAction SilentlyContinue | Where-Object {$_.Path -eq "$guiTarget\EvidenceNeuterHub.exe"} | Select-Object -First 1
+  if($finishHub){$finishHub.Refresh();if($finishHub.MainWindowHandle -ne 0){break}}
+ }
+ if(!$finishHub -or $finishHub.MainWindowHandle -eq 0){throw 'Finish page did not launch a native Hub window; installation guard may still be held'}
+ Capture-Hub $finishHub.MainWindowHandle 'finish-launch'
+ $smokeStage='uninstaller refuses running Hub'
+ $blockedUninstall=Start-Process "$guiTarget/Uninstall.exe" -ArgumentList '/S' -Wait -PassThru
+ if($blockedUninstall.ExitCode -eq 0 -or !(Test-Path "$guiTarget/EvidenceNeuterHub.exe")){throw 'Uninstaller did not refuse the running Hub guard'}
+} finally {
+ if($finishHub -and !$finishHub.HasExited){Stop-Process -Id $finishHub.Id}
+ if(!$wizard.HasExited){Stop-Process -Id $wizard.Id}
+}
+$smokeStage='interactive installation cleanup'
+$p=Start-Process "$guiTarget/Uninstall.exe" -ArgumentList '/S' -Wait -PassThru
+for($i=0;$i -lt 30 -and (Test-Path "$guiTarget/EvidenceNeuterHub.exe");$i++){Start-Sleep -Milliseconds 500}
+if(Test-Path "$guiTarget/EvidenceNeuterHub.exe"){throw 'Interactive installation cleanup failed'}
+Write-Output 'PASS: native installer/bootstrap package, isolated standalone bootstrap without SDK bindings, running-install/uninstall guards, four-page keyboard navigation, resize/focus, genuine interactive Finish launch, uninstall and unrelated-file preservation. Laptop/high-DPI/gameplay acceptance remains separate.'
