@@ -43,6 +43,12 @@ try {
  }else Console.WriteLine("SKIP Windows-only actual running-game process fixture; Windows CI executes it.");
  var canceledStage=Path.Combine(folder,"canceled-handoff");Directory.CreateDirectory(canceledStage);File.WriteAllText(Path.Combine(canceledStage,"cancel.requested"),"cancel");
  using(var parent=System.Diagnostics.Process.GetCurrentProcess())await Reject(()=>HubUpdate.WaitForParentExitAsync(parent,canceledStage,CancellationToken.None),"canceled bootstrap handoff cannot install after later Hub exit");
+ var blockedMarkerStage=Path.Combine(folder,"marker-write-fails");Directory.CreateDirectory(Path.Combine(blockedMarkerStage,"cancel.requested"));
+ var ownedInfo=OperatingSystem.IsWindows()?new System.Diagnostics.ProcessStartInfo(Path.GetFullPath("artifacts/gamefixture/EvidenceGenesis.exe")):new System.Diagnostics.ProcessStartInfo("/bin/sleep");if(!OperatingSystem.IsWindows())ownedInfo.ArgumentList.Add("30");ownedInfo.UseShellExecute=false;
+ using(var ownedChild=System.Diagnostics.Process.Start(ownedInfo) ?? throw new Exception("Owned cancellation fixture failed to start")) {
+  try {await HubUpdate.CancelHandoffAsync(ownedChild,blockedMarkerStage);Assert(ownedChild.HasExited,"failed cancel marker stops and waits for only the owned bootstrap child");}
+  finally{if(!ownedChild.HasExited){ownedChild.Kill();await ownedChild.WaitForExitAsync();}}
+ }
  var catalogPath=Path.Combine(AppContext.BaseDirectory,"development.json"); var devCatalog=File.ReadAllText(catalogPath);
  Assert(Catalog.Parse(devCatalog,false).Products[0].SaveSchema==4,"canonical catalog saveSchema4");
  await Reject(()=>Task.Run(()=>Catalog.ReleaseFor(Catalog.Parse(devCatalog,false),"genesis")),"blocked development catalog cannot authorize transfers");

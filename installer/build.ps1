@@ -14,8 +14,10 @@ $buildStage = 'running-game fixture'
 dotnet publish tests/RunningGame/RunningGame.csproj -c Release -r win-x64 --self-contained false -o artifacts/gamefixture
 if ($LASTEXITCODE) { throw 'Running-game fixture publish failed' }
 $buildStage = 'updater tests'
-dotnet run --project tests/UpdaterTests/UpdaterTests.csproj -c Release 2>&1 | Tee-Object -FilePath artifacts/updater-tests.log -Variable updaterOutput
-if ($LASTEXITCODE) {
+dotnet run --project tests/UpdaterTests/UpdaterTests.csproj -c Release 2>&1 | Tee-Object -Variable updaterOutput
+$updaterExit = $LASTEXITCODE
+$updaterOutput | Out-File artifacts/updater-tests.log
+if ($updaterExit) {
   $detail = (($updaterOutput | Select-Object -Last 20) -join ' | ').Replace('%', '%25').Replace("`r", '%0D').Replace("`n", '%0A')
   Write-Output "::error title=Updater test failure::$detail"
   throw 'Updater tests failed'

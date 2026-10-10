@@ -50,6 +50,18 @@ public static class HubUpdate
             File.WriteAllText(Path.Combine(stage,"manifest.json"),envelope);return stage;
         }catch {Directory.Delete(stage,true);throw;}
     }
+    public static async Task CancelHandoffAsync(Process ownedBootstrap,string stage)
+    {
+        // This is the Process returned by our own Start call, never a process rediscovered by PID.
+        _ = ownedBootstrap.SafeHandle;
+        try { File.WriteAllText(Path.Combine(stage,"cancel.requested"),"Canceled Hub handoff; never install."); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // A full/read-only stage must not leave a live installer handoff waiting for later Hub exit.
+            try { if (!ownedBootstrap.HasExited) ownedBootstrap.Kill(); }
+            finally { await ownedBootstrap.WaitForExitAsync(); }
+        }
+    }
     public static async Task WaitForParentExitAsync(Process parent,string stage,CancellationToken token)
     {
         // Retain the originating native process handle; PID reuse cannot replace this parent.
