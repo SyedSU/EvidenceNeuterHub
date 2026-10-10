@@ -31,6 +31,24 @@ function Capture-Hub($window,$name) {
  $bitmap.Save((Join-Path (Get-Location) "artifacts/windows-$name.png"))
  $graphics.Dispose();$bitmap.Dispose()
 }
+# An isolated copy of only the bootstrap EXE must reach our own fail-closed handler.
+# Invalid DOTNET_ROOT bindings ensure this child cannot resolve the developer SDK path.
+$bootstrapStage=Join-Path $env:TEMP ('hub-bootstrap-test-' + [guid]::NewGuid())
+New-Item -ItemType Directory $bootstrapStage | Out-Null
+Copy-Item "$target/EvidenceHubBootstrap.exe" "$bootstrapStage/EvidenceHubBootstrap.exe"
+$bootstrapInfo=New-Object System.Diagnostics.ProcessStartInfo
+$bootstrapInfo.FileName="$bootstrapStage/EvidenceHubBootstrap.exe"
+$bootstrapInfo.UseShellExecute=$false
+$bootstrapInfo.Environment['DOTNET_ROOT']="$bootstrapStage/no-runtime"
+$bootstrapInfo.Environment['DOTNET_ROOT_X64']="$bootstrapStage/no-runtime"
+$bootstrapInfo.Environment['DOTNET_MULTILEVEL_LOOKUP']='0'
+$boot=[System.Diagnostics.Process]::Start($bootstrapInfo)
+try {
+ $marker=Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'EvidenceNeuterHub/HubUpdates/bootstrap-last-error.json'
+ $bootstrapReady=$false
+ for($i=0;$i -lt 60;$i++){Start-Sleep -Milliseconds 250;if(Test-Path $marker){$errorRecord=Get-Content $marker -Raw | ConvertFrom-Json;if($errorRecord.processId -eq $boot.Id -and $errorRecord.message -eq 'Invalid Hub handoff.'){$bootstrapReady=$true;break}};if($boot.HasExited){break}}
+ if(!$bootstrapReady){throw 'Standalone bootstrap did not reach its own fail-closed handler without SDK bindings'}
+} finally {if(!$boot.HasExited){Stop-Process -Id $boot.Id};$boot.Dispose();Remove-Item $bootstrapStage -Recurse -Force}
 $hub = $null
 try {
  $hub = Start-Process "$target/EvidenceNeuterHub.exe" -PassThru

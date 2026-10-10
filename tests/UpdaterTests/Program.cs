@@ -41,6 +41,8 @@ try {
   try {await Task.Delay(100);await Reject(()=>manager.RollbackAsync(CancellationToken.None),"actual running game process blocks rollback");await Reject(()=>Task.Run(()=>manager.ClearDownloadStorage()),"actual running game process blocks storage cleanup");}
   finally{if(!running.HasExited)running.Kill();await running.WaitForExitAsync();}
  }else Console.WriteLine("SKIP Windows-only actual running-game process fixture; Windows CI executes it.");
+ var canceledStage=Path.Combine(folder,"canceled-handoff");Directory.CreateDirectory(canceledStage);File.WriteAllText(Path.Combine(canceledStage,"cancel.requested"),"cancel");
+ using(var parent=System.Diagnostics.Process.GetCurrentProcess())await Reject(()=>HubUpdate.WaitForParentExitAsync(parent,canceledStage,CancellationToken.None),"canceled bootstrap handoff cannot install after later Hub exit");
  var catalogPath=Path.Combine(AppContext.BaseDirectory,"development.json"); var devCatalog=File.ReadAllText(catalogPath);
  Assert(Catalog.Parse(devCatalog,false).Products[0].SaveSchema==4,"canonical catalog saveSchema4");
  await Reject(()=>Task.Run(()=>Catalog.ReleaseFor(Catalog.Parse(devCatalog,false),"genesis")),"blocked development catalog cannot authorize transfers");

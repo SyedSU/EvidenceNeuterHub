@@ -50,6 +50,19 @@ public static class HubUpdate
             File.WriteAllText(Path.Combine(stage,"manifest.json"),envelope);return stage;
         }catch {Directory.Delete(stage,true);throw;}
     }
+    public static async Task WaitForParentExitAsync(Process parent,string stage,CancellationToken token)
+    {
+        // Retain the originating native process handle; PID reuse cannot replace this parent.
+        _ = parent.SafeHandle;
+        while (!parent.HasExited)
+        {
+            if (File.Exists(Path.Combine(stage,"cancel.requested"))) throw new OperationCanceledException("Hub handoff was canceled.");
+            await Task.Delay(100,token);
+        }
+        token.ThrowIfCancellationRequested();
+        if (File.Exists(Path.Combine(stage,"cancel.requested"))) throw new OperationCanceledException("Hub handoff was canceled.");
+        await parent.WaitForExitAsync(token);
+    }
     public static long Highest(string root)
     {
         var path=Path.Combine(root,"sequence.json");InstallManager.RejectLinks(path);
