@@ -11,10 +11,12 @@ Function .onInit
   System::Call 'kernel32::CloseHandle(p $HubInstallGuard)'
   StrCpy $HubInstallGuard 0
   MessageBox MB_OK|MB_ICONSTOP "Close Evidence Neuter Hub before installing. Another Hub or installer holds the installation guard." /SD IDOK
+  SetErrorLevel 1
   Abort
  ${EndIf}
  ${IfNot} ${RunningX64}
   MessageBox MB_OK|MB_ICONSTOP "Evidence Neuter Hub requires Windows x64."
+  SetErrorLevel 1
   Abort
  ${EndIf}
 FunctionEnd
@@ -85,6 +87,7 @@ Function un.onInit
   System::Call 'kernel32::CloseHandle(p $HubInstallGuard)'
   StrCpy $HubInstallGuard 0
   MessageBox MB_OK|MB_ICONSTOP "Close Evidence Neuter Hub before uninstalling." /SD IDOK
+  SetErrorLevel 1
   Abort
  ${EndIf}
 FunctionEnd
