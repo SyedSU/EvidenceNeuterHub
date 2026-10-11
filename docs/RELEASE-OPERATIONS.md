@@ -46,3 +46,7 @@ Generated cache/staging cleanup holds the same install lock, rejects reparse lin
 Private Windows CI covers synthetic security fixtures, installer/bootstrap packaging, native startup, keyboard navigation/focus, resized screenshots, uninstall and unrelated-file preservation. Product screenshot artwork was captured genuinely in Godot4.7.2 on Linux llvmpipe/template mode and is labeled accordingly. Neither is a production trust, GPU/model benchmark or target-laptop gameplay claim.
 
 Before approving public download gates: test independently signed production manifests/installer; fresh Genesis0.4 install; imported/nested layouts; model reuse; sameSchema4 update/rollback; canceled/interrupted/lowdisk/read-only storage; locks/running game; tampering; offline Play; non-ASCII paths; high DPI/resize/keyboard; Hub parent-exit/bootstrap publisher verification/installer cancel/repair; and actual AI/model readiness. Root rotation/revocation, full TUF, transactional Hub rollback, save migration, range resume, old-version/save-backup garbage collection and real production-signed bootstrap success remain unimplemented or unverified as described above.
+
+## Production preparation follow-up
+
+See [real-release acceptance](PRODUCTION-ACCEPTANCE.md) for credential inventory, exact bootstrap-before-installer signing order, read-only evidence collection and genuine-version scenario prerequisites. User-reported laptop acceptance is recorded separately from independent production-signed evidence. No public gate is enabled by preparation.
