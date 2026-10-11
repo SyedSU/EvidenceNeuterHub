@@ -76,3 +76,31 @@ This intentionally incomplete example fails closed; numeric marks must be replac
 | Self-update cancellation/rejection | Cancel handoff/installer in disposable account; no later unintended launch, no false success, error marker if applicable. Tampered/wrong publisher/expired/replayed candidate must fail closed; do not modify public production assets to run negative tests |
 
 Record operator/date, checkpoint paths, evidence file SHA256, screenshots/video, expected/observed outcome and PASS/FAIL/UNRUN for every row. Preserve failure evidence. Installer cancellation, repair and power-loss durability remain separate: current Hub bootstrap is not transactional rollback. Rotation/revocation/threshold root metadata and TUF remain unimplemented. A maintained framework still needs a separate reviewed trust/format migration; no such integration is claimed.
+
+## Phase1 signed Genesis core before the public catalog gate
+
+Public managed acceptance must precede gate approval; do not assert Windows acceptance/publicDownloads merely to make the normal UI install a candidate. Phase1 publishes actual signed Genesis metadata and immutable packages through a separately authorized protected distribution operation while the public catalog remains blocked. The operator-only commands below call the **same InstallManager and production DownloadClient** directly using an independently approved public key. They do not use/change catalog flags, modify installed Hub trust, launch a game or approve a release. Phase2 catalog activation follows independent review of real Phase1 evidence and the remaining UI/game/publisher acceptance. This closes the managed-core testing dependency without claiming the normal public UI was already enabled.
+
+Commands: `genesis-install`, `genesis-cancel`, `genesis-rollback`, followed by an inputs JSON path and a **new** external evidence directory. No import roots or default/personal save paths are accepted. The workspace must be a GUID child of the OS temporary `EvidenceNeuterAcceptance` directory, contain the exact marker below, and have an explicitly created `saves` child. The harness fixes its managed root to `workspace/managed` and backup source to `workspace/saves`. Place only disposable acceptance save fixtures there. Actual Godot Continue/play with its user directory still requires the dedicated Windows test account and separate evidence; the harness never launches a game or claims it did.
+
+Operator setup in PowerShell (deliberate setup, not an approval):
+
+```powershell
+$caseRoot = Join-Path ([IO.Path]::GetTempPath()) ('EvidenceNeuterAcceptance\' + [guid]::NewGuid().ToString('N'))
+New-Item -ItemType Directory (Join-Path $caseRoot 'saves') -Force
+Set-Content (Join-Path $caseRoot '.evidence-acceptance-isolated') 'DISPOSABLE GENESIS ACCEPTANCE v1'
+```
+
+Create config with the actual generated workspace path, independently approved public-key path and actual signed manifest downloaded anonymously from its intended public metadata URL. Keep those original URL/download/hash records as evidence. Example values below are placeholders and do not constitute a signed release:
+
+```json
+{"workspace":"REPLACE_WITH_GENERATED_GUID_WORKSPACE","genesisKey":"REPLACE_WITH_APPROVED_PUBLIC_KEY_FILE","genesisEnvelope":"REPLACE_WITH_REAL_SIGNED_MANIFEST_FILE","checkpoint":"fresh-public-signed-core","cancelAtBytes":0}
+```
+
+Run `dotnet Acceptance.dll genesis-install inputs.json NEW_EXTERNAL_EVIDENCE_DIRECTORY` for fresh install or a genuine newer sameSchema4 release. Use the built DLL's full path. Signed size/hash/expiry/replay/version/URL/archive/file policy and actual save backup/activation remain the production code's checks. The harness requires saveSchema4 for this milestone. It records the independent public-key SPKI SHA256, envelope hash, declared package URLs/bytes/hashes, before/after state and save hashes, and synchronous measured transfer/reuse events in `transfers.jsonl`. Inspect the actual counters and reuse events; a matching model hash alone does not establish zero network transfer.
+
+For cancellation, set a positive `cancelAtBytes` and use `genesis-cancel` on a fresh workspace or genuinely changed package requiring transfer. Cancellation triggers only from measured `Downloading` bytes. Progress is sampled by the production stream (roughly100ms or package completion), so the observed cancellation may overshoot the requested threshold. A successful cancellation classification requires the threshold actually reached, an observed cancellation, unchanged activation/high-water state, unchanged saves and no partial files. If reuse prevents transfer or the threshold is too high, activation is deliberately blocked and the run fails; this is **not** cancellation acceptance. Preserve that failure report.
+
+For rollback, use `genesis-rollback` after two different genuine sameSchema4 versions have actually been installed in this same workspace. It verifies the previous stored signature/files, changes the pointer through the production rollback code, preserves highest sequence and saves, and verifies the resulting current files. The new-manifest input may be omitted for rollback. Cross-epoch0.3→0.4 rollback cannot substitute for this scenario.
+
+`operation.json` outcomes distinguish completed core operation, measured cancellation without activation, and failure. No report automatically approves Windows/game/UI/publisher acceptance or release gates. Only isolated synthetic tests inject a fake HTTP handler into the shared harness method; the CLI always creates the production HTTPS DownloadClient, with no transport/trust bypass options. No real operator command was run during preparation because approved keys and public assets are unavailable.

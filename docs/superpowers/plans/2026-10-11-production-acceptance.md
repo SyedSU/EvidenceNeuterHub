@@ -15,3 +15,7 @@ No invented versions/certificates/pins/public assets; no changed client behavior
 - [x] Add separate signature-verification mode using independent public keys and approved catalog/product binding; prove unsigned fixture rejected.
 - [x] Document signing order, credential inventory, separate snapshot checkpoints and manual evidence requirements.
 - [x] Run collector checks and existing regression suites, update PR2; no publication/merge.
+
+## Phase1 signed-core acceptance follow-up
+
+Add operator-only genesis-install/genesis-cancel/genesis-rollback commands. Require a manually marked GUID workspace under the OS temporary EvidenceNeuterAcceptance directory, fixed managed/saves children, new external evidence output and independently approved public metadata key. Reuse production InstallManager/DownloadClient; never change catalog gates or launch a game. Verify real save hashes/pointers and measured transfer counters; cancellation is accepted only if the measured threshold actually triggers and activation remains unchanged. Tests inject explicitly synthetic package transport, never a CLI bypass.

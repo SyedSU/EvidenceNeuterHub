@@ -4,6 +4,12 @@ using System.Security.Cryptography;
 using System.Text.Json;
 
 try {
+ if(args.Length==3 && args[0] is "genesis-install" or "genesis-cancel" or "genesis-rollback"){
+  InstallManager.RejectLinks(Path.GetFullPath(args[1]));
+  var operatorInput=JsonSerializer.Deserialize<EvidenceHub.Acceptance.GenesisInputs>(Read(args[1]),Metadata.Json) ?? throw new IOException("Missing operator inputs.");
+  using var downloads=new DownloadClient();await EvidenceHub.Acceptance.GenesisAcceptance.RunAsync(args[0],operatorInput,args[2],downloads);
+  Console.WriteLine("Operator core evidence collected; catalog gate not changed and release acceptance not automatically approved.");return;
+ }
  if(args.Length!=3 || args[0]!="snapshot")throw new IOException("Usage: Acceptance snapshot <config.json> <new evidence directory>");
  var configPath=Path.GetFullPath(args[1]);InstallManager.RejectLinks(configPath);
  var config=JsonSerializer.Deserialize<Inputs>(File.ReadAllText(configPath),Metadata.Json) ?? throw new IOException("Missing inputs.");

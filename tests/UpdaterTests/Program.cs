@@ -35,6 +35,33 @@ var saves=Path.Combine(folder,"external-saves");Directory.CreateDirectory(saves)
 var manager=new InstallManager(Path.Combine(folder,"managed"),publicKey,client,saves);
 var first=Fixture("0.3.0",1);var envelope=Sign(first);
 try {
+ var operatorWorkspace=Path.Combine(Path.GetTempPath(),"EvidenceNeuterAcceptance",Guid.NewGuid().ToString("N"));
+ Directory.CreateDirectory(operatorWorkspace);Directory.CreateDirectory(Path.Combine(operatorWorkspace,"saves"));
+ try {
+  var operatorKey=Path.Combine(folder,"operator-public.pem");File.WriteAllText(operatorKey,publicKey);
+  var operatorManifest=Path.Combine(folder,"operator-manifest.json");File.WriteAllText(operatorManifest,Sign(first with{SaveSchema=4,MinimumHubVersion="0.3.0"}));
+  var operatorInput=new EvidenceHub.Acceptance.GenesisInputs(operatorWorkspace,operatorKey,operatorManifest,"synthetic-first");
+  await Reject(()=>EvidenceHub.Acceptance.GenesisAcceptance.RunAsync("genesis-install",operatorInput with{Workspace=folder},Path.Combine(folder,"operator-outside"),client),"operator rejects arbitrary/default roots");
+  await Reject(()=>EvidenceHub.Acceptance.GenesisAcceptance.RunAsync("genesis-install",operatorInput,Path.Combine(folder,"operator-unmarked"),client),"operator core rejects unmarked workspace before download");
+  File.WriteAllText(Path.Combine(operatorWorkspace,".evidence-acceptance-isolated"),EvidenceHub.Acceptance.GenesisAcceptance.Marker);
+  File.WriteAllText(Path.Combine(operatorWorkspace,"saves","save.json"),"synthetic acceptance save");
+  var firstEvidence=Path.Combine(folder,"operator-first");
+  await EvidenceHub.Acceptance.GenesisAcceptance.RunAsync("genesis-install",operatorInput,firstEvidence,client);
+  Assert(File.Exists(Path.Combine(firstEvidence,"operation.json")),"operator actual core transaction records completed synthetic evidence");
+  await Reject(()=>EvidenceHub.Acceptance.GenesisAcceptance.RunAsync("genesis-install",operatorInput,firstEvidence,client),"operator rejects overwritten evidence");
+  var operatorSecond=Fixture("0.3.1",2) with{SaveSchema=4,MinimumHubVersion="0.3.0"};var changedExe=(byte[])exe.Clone();changedExe[100]=7;operatorSecond=operatorSecond with {Packages=new[]{Pack("game","EvidenceGenesis.exe",changedExe,"operator-second"),operatorSecond.Packages[1],operatorSecond.Packages[2]}};
+  File.WriteAllText(operatorManifest,Sign(operatorSecond));handler.Requests.Clear();
+  await EvidenceHub.Acceptance.GenesisAcceptance.RunAsync("genesis-install",operatorInput with{Checkpoint="synthetic-update"},Path.Combine(folder,"operator-update"),client);
+  Assert(handler.Requests.Count==1 && handler.Requests[0]==operatorSecond.Packages[0].Url,"operator same-epoch update reuses verified runtime/model with no synthetic requests");
+  await EvidenceHub.Acceptance.GenesisAcceptance.RunAsync("genesis-rollback",operatorInput,Path.Combine(folder,"operator-rollback"),client);
+  Assert(File.ReadAllText(Path.Combine(operatorWorkspace,"saves","save.json"))=="synthetic acceptance save","operator rollback preserves acceptance saves");
+  var cancelWorkspace=Path.Combine(Path.GetTempPath(),"EvidenceNeuterAcceptance",Guid.NewGuid().ToString("N"));Directory.CreateDirectory(cancelWorkspace);Directory.CreateDirectory(Path.Combine(cancelWorkspace,"saves"));File.WriteAllText(Path.Combine(cancelWorkspace,".evidence-acceptance-isolated"),EvidenceHub.Acceptance.GenesisAcceptance.Marker);
+  try {await EvidenceHub.Acceptance.GenesisAcceptance.RunAsync("genesis-cancel",operatorInput with{Workspace=cancelWorkspace,CancelAtBytes=1},Path.Combine(folder,"operator-cancel"),client);Assert(!File.Exists(Path.Combine(cancelWorkspace,"managed","active.json")),"operator measured-byte cancellation leaves no active pointer");}finally{Directory.Delete(cancelWorkspace,true);}
+  var operatorPointerBefore=File.ReadAllText(Path.Combine(operatorWorkspace,"managed","active.json"));
+  await Reject(()=>EvidenceHub.Acceptance.GenesisAcceptance.RunAsync("genesis-cancel",operatorInput with{CancelAtBytes=long.MaxValue},Path.Combine(folder,"operator-unreached-cancel"),client),"operator unreached cancellation cannot claim successful cancellation");
+  Assert(File.ReadAllText(Path.Combine(operatorWorkspace,"managed","active.json"))==operatorPointerBefore,"operator unreached cancellation blocks activation pointer change");
+ }finally{Directory.Delete(operatorWorkspace,true);}
+ handler.Requests.Clear();
  if(OperatingSystem.IsWindows()) {
   var gameFixture=Path.GetFullPath("artifacts/gamefixture/EvidenceGenesis.exe");
   using var running=System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(gameFixture){UseShellExecute=false}) ?? throw new Exception("Running-game fixture did not start");
