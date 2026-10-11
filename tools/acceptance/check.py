@@ -12,9 +12,10 @@ with tempfile.TemporaryDirectory() as d:
     assert save.read_bytes()==b'original synthetic save'
     result=run(valid,report);assert result.returncode!=0 and 'must be new' in result.stderr
     result=run(valid,root/'nested');assert result.returncode!=0 and 'outside measured roots' in result.stderr
+    result=run(dict(valid,roots=[base.anchor]),base/'volume-report');assert result.returncode!=0 and 'outside measured roots' in result.stderr
     envelope=base/'catalog.json';envelope.write_text('{}');key=base/'key.pem';key.write_text('-----BEGIN PRIVATE KEY-----')
     result=run(dict(valid,catalogEnvelope=str(envelope),catalogKey=str(key)),base/'private');assert result.returncode!=0 and 'Public-key files only' in result.stderr;assert not (base/'private').exists()
     result=run(dict(valid,catalogEnvelope=str(envelope)),base/'unsigned');assert result.returncode!=0 and 'input missing' in result.stderr
     link=root/'linked';link.symlink_to(save)
     result=run(valid,base/'linked-report');assert result.returncode!=0 and not (base/'linked-report').exists()
-print('PASS 6 collector checks: read-only snapshot, overwrite/nested-output/private-key/missing-trust/link rejection; synthetic fixtures only.')
+print('PASS 7 collector checks: read-only snapshot, overwrite/nested-output/volume-root-output/private-key/missing-trust/link rejection; synthetic fixtures only.')

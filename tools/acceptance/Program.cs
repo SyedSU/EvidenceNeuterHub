@@ -13,7 +13,8 @@ try {
  var trees=new List<object>();
  foreach(var input in config.Roots){
   var root=Path.GetFullPath(input);InstallManager.RejectLinks(root);
-  if(output==root || output.StartsWith(root+Path.DirectorySeparatorChar,StringComparison.OrdinalIgnoreCase))throw new IOException("Evidence destination must be outside measured roots.");
+  var relativeOutput=Path.GetRelativePath(root,output);
+  if(relativeOutput=="." || (!Path.IsPathRooted(relativeOutput) && relativeOutput!=".." && !relativeOutput.StartsWith(".."+Path.DirectorySeparatorChar,StringComparison.Ordinal)))throw new IOException("Evidence destination must be outside measured roots.");
   if(!Directory.Exists(root))throw new IOException("Measured root does not exist: "+root);
   var files=new List<object>();var pending=new Stack<string>();pending.Push(root);
   while(pending.Count>0){var dir=pending.Pop();InstallManager.RejectLinks(dir);foreach(var entry in Directory.EnumerateFileSystemEntries(dir)){InstallManager.RejectLinks(entry);if(Directory.Exists(entry))pending.Push(entry);else{using var stream=new FileStream(entry,FileMode.Open,FileAccess.Read,FileShare.Read);files.Add(new{path=Path.GetRelativePath(root,entry),size=stream.Length,sha256=Convert.ToHexString(SHA256.HashData(stream)).ToLowerInvariant()});}}}
