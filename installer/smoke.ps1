@@ -136,8 +136,12 @@ try {
  if(!$finishHub -or $finishHub.MainWindowHandle -eq 0){throw 'Finish page did not launch a native Hub window; installation guard may still be held'}
  Capture-Hub $finishHub.MainWindowHandle 'finish-launch'
  $smokeStage='uninstaller refuses running Hub'
- $blockedUninstall=Start-Process "$guiTarget/Uninstall.exe" -ArgumentList '/S' -Wait -PassThru
+ # NSIS _?= must be last: execute the actual uninstaller in place, so its guard exit
+ # is observed rather than the temporary-copy launcher exit. The running Hub is real.
+ $installedHash=(Get-FileHash "$guiTarget/EvidenceNeuterHub.exe" -Algorithm SHA256).Hash
+ $blockedUninstall=Start-Process "$guiTarget/Uninstall.exe" -ArgumentList @('/S',"_?=$guiTarget") -Wait -PassThru
  if($blockedUninstall.ExitCode -eq 0 -or !(Test-Path "$guiTarget/EvidenceNeuterHub.exe")){throw "Uninstaller did not refuse the running Hub guard: exit=$($blockedUninstall.ExitCode), executablePresent=$(Test-Path "$guiTarget/EvidenceNeuterHub.exe")"}
+ if((Get-FileHash "$guiTarget/EvidenceNeuterHub.exe" -Algorithm SHA256).Hash -ne $installedHash){throw 'Blocked uninstall changed the installed Hub executable'}
 } finally {
  if($finishHub -and !$finishHub.HasExited){Stop-Process -Id $finishHub.Id}
  if(!$wizard.HasExited){Stop-Process -Id $wizard.Id}
