@@ -50,3 +50,7 @@ Before approving public download gates: test independently signed production man
 ## Production preparation follow-up
 
 See [real-release acceptance](PRODUCTION-ACCEPTANCE.md) for credential inventory, exact bootstrap-before-installer signing order, read-only evidence collection and genuine-version scenario prerequisites. User-reported laptop acceptance is recorded separately from independent production-signed evidence. No public gate is enabled by preparation.
+
+## Approved-publisher build hook
+
+Set `HUB_PRODUCTION_BUILD=1` only on the protected approved Windows signing runner. `HUB_SIGNING_CERT_SHA1` selects a pre-provisioned CurrentUser certificate with its private key provided by the approved certificate store/HSM; no PFX/password/private key is stored in source or downloaded by the build. `HUB_PUBLISHER_SHA256` must independently match its DER certificate. Existing catalog/Genesis/Hub public key pins and catalog URL are mandatory. The hook signs and verifies bootstrapper and Hub executable before NSIS packaging, then signs/verifies the final installer with trusted timestamping. Development CI remains explicitly unsigned. This script does not provision certificates, approve a publisher, publish packages, or establish production acceptance. Windows PowerShell7/.NET signing APIs and certificate provider availability require a real configured-runner check. No public release environment exists at the inspected time; never run protected release jobs in an automatically created unprotected environment.

@@ -1,5 +1,11 @@
 $ErrorActionPreference = 'Stop'
 $buildStage = 'initialization'
+$production = $env:HUB_PRODUCTION_BUILD -eq '1'
+if ($production) {
+ foreach ($name in @('GENESIS_RELEASE_PUBLIC_KEY_PEM','CATALOG_RELEASE_PUBLIC_KEY_PEM','CATALOG_URL','HUB_RELEASE_PUBLIC_KEY_PEM','HUB_PUBLISHER_SHA256','HUB_SIGNING_CERT_SHA1')) {
+  if (![Environment]::GetEnvironmentVariable($name)) { throw "Production trust missing: $name" }
+ }
+}
 trap {
   $detail = ("Stage: $buildStage | " + $_.Exception.Message + " | line " + $_.InvocationInfo.ScriptLineNumber).Replace('%','%25').Replace("`r",'%0D').Replace("`n",'%0A')
   Write-Output "::error title=Hub build failure::$detail"
@@ -36,6 +42,10 @@ if ($LASTEXITCODE) { throw 'Publish failed' }
 $buildStage = 'bootstrap publish'
 dotnet publish tools/bootstrap/Bootstrap.csproj -c Release -r win-x64 --self-contained true -o artifacts/bootstrap
 if ($LASTEXITCODE) { throw 'Bootstrapper publish failed' }
+if ($production) {
+ & ./installer/sign-approved.ps1 artifacts/bootstrap/EvidenceHubBootstrap.exe
+ & ./installer/sign-approved.ps1 artifacts/app/EvidenceNeuterHub.exe
+}
 Copy-Item artifacts/bootstrap/EvidenceHubBootstrap.exe artifacts/app/EvidenceHubBootstrap.exe
 $root = (Resolve-Path artifacts/app).Path
 $lines = Get-ChildItem $root -File -Recurse | ForEach-Object { 'Delete "$INSTDIR\' + $_.FullName.Substring($root.Length + 1) + '"' }
@@ -44,4 +54,5 @@ $dirs = Get-ChildItem $root -Directory -Recurse | Sort-Object { $_.FullName.Leng
 $buildStage = 'NSIS'
 & "${env:ProgramFiles(x86)}\NSIS\makensis.exe" /WX installer/Hub.nsi
 if ($LASTEXITCODE) { throw 'Installer failed' }
+if ($production) { & ./installer/sign-approved.ps1 artifacts/EvidenceNeuterHub-Setup-0.3.0.exe }
 Get-FileHash artifacts/EvidenceNeuterHub-Setup-0.3.0.exe -Algorithm SHA256 | Format-List | Out-File artifacts/SHA256.txt
