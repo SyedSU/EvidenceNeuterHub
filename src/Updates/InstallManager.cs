@@ -180,7 +180,7 @@ public sealed class InstallManager(string root, string publicKey, DownloadClient
         if (state.Current is not null)
         {
             var current = Metadata.Verify(state.Current.Envelope, publicKey, offlineInstalled: true).Manifest;
-            if (current.SaveSchema != m.SaveSchema && !(current.SaveSchema == 1 && m.SaveSchema == 4 && current.Version == "0.3.0" && m.Version == "0.4.0" && Metadata.VersionOf(m.MinimumHubVersion) >= Metadata.VersionOf("0.3.0"))) throw new IOException("This save-schema transition is not reviewed. Only Genesis0.3.0 epoch1 to0.4.0 epoch4 is supported; legacy import is explicit and originals are preserved.");
+            if (current.SaveSchema != m.SaveSchema && !(current.SaveSchema == 1 && m.SaveSchema == 4 && current.Version == "0.3.0" && (m.Version == "0.4.0" || m.Version == "0.5.0") && Metadata.VersionOf(m.MinimumHubVersion) >= Metadata.VersionOf("0.3.0"))) throw new IOException("This save-schema transition is not reviewed. Only Genesis0.3.0 epoch1 to0.4.0/0.5.0 epoch4 is supported; legacy import is explicit and originals are preserved.");
             if (current.Sequence == m.Sequence && state.Current.Envelope == envelope) throw new IOException("This release is already installed.");
         }
         var stagingBase = Path.Combine(root, "staging"); Directory.CreateDirectory(stagingBase); RejectLinks(stagingBase);

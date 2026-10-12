@@ -3,12 +3,12 @@ on:
   workflow_dispatch:
     inputs:
       source_commit:
-        description: Approved full EvidenceGenesis commit (feat/native-game)
+        description: Approved full EvidenceGenesis commit (main)
         required: true
       version:
         description: Independent Genesis version
         required: true
-        default: 0.4.0
+        default: 0.5.0
       sequence:
         description: Strictly increasing signed release sequence
         required: true
@@ -19,7 +19,20 @@ concurrency:
   group: genesis-public-release
   cancel-in-progress: false
 jobs:
+  protection:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Require existing protected environments before any signing or publication
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python tools/release/check-environment.py genesis-build genesis-release
   build:
+    needs: protection
     runs-on: windows-2022
     environment: genesis-build
     steps:
@@ -50,7 +63,7 @@ jobs:
           if ($env:RELEASE_VERSION -notmatch '^\d+\.\d+\.\d+$' -or $env:RELEASE_SEQUENCE -notmatch '^[1-9]\d*$') { throw 'Invalid release input' }
           $actual = git -C genesis-source rev-parse HEAD
           if ($LASTEXITCODE -or $actual -ne $env:SOURCE_COMMIT) { throw 'Source commit mismatch' }
-          # Reviewed upstream builder must package 0.4.0; later versions must update the reviewed upstream builder first.
+          # Reviewed upstream builder must package the explicit version; later versions must update the reviewed upstream builder first.
           if (!(Select-String -Path genesis-source/scripts/build_native.py -SimpleMatch "'version':'$env:RELEASE_VERSION'" -Quiet)) { throw 'Upstream version mismatch' }
       - name: Build and test real native Genesis and bundled AI
         shell: pwsh

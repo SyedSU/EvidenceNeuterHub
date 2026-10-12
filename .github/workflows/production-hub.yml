@@ -1,0 +1,67 @@
+name: Build approved-publisher Hub candidate
+on:
+  workflow_dispatch:
+    inputs:
+      reviewed_commit:
+        description: Full reviewed main source commit
+        required: true
+permissions:
+  contents: read
+concurrency:
+  group: approved-hub-candidate
+  cancel-in-progress: false
+jobs:
+  protection:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Require existing protected signing environment
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python tools/release/check-environment.py hub-signing
+  build:
+    needs: protection
+    environment: hub-signing
+    runs-on: [self-hosted, Windows, X64, evidence-signing]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.reviewed_commit }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Confirm exact reviewed main ancestry
+        shell: pwsh
+        env:
+          REVIEWED_COMMIT: ${{ inputs.reviewed_commit }}
+        run: |
+          if ($env:REVIEWED_COMMIT -notmatch '^[a-f0-9]{40}$') { throw 'Full commit required' }
+          if ((git rev-parse HEAD) -ne $env:REVIEWED_COMMIT) { throw 'Source mismatch' }
+          git merge-base --is-ancestor $env:REVIEWED_COMMIT origin/main
+          if ($LASTEXITCODE) { throw 'Reviewed commit must be on main' }
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Build and verify approved publisher (certificate already provisioned)
+        shell: pwsh
+        env:
+          HUB_PRODUCTION_BUILD: '1'
+          HUB_SIGNING_CERT_SHA1: ${{ vars.HUB_SIGNING_CERT_SHA1 }}
+          HUB_PUBLISHER_SHA256: ${{ vars.HUB_PUBLISHER_SHA256 }}
+          GENESIS_RELEASE_PUBLIC_KEY_PEM: ${{ vars.GENESIS_RELEASE_PUBLIC_KEY_PEM }}
+          HUB_RELEASE_PUBLIC_KEY_PEM: ${{ vars.HUB_RELEASE_PUBLIC_KEY_PEM }}
+          CATALOG_RELEASE_PUBLIC_KEY_PEM: ${{ vars.CATALOG_RELEASE_PUBLIC_KEY_PEM }}
+          CATALOG_URL: ${{ vars.CATALOG_URL }}
+        run: ./installer/build.ps1
+      - name: Run native installer acceptance
+        shell: pwsh
+        run: ./installer/smoke.ps1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: EvidenceNeuterHub-approved-publisher-candidate
+          path: artifacts/
+          retention-days: 7
+          if-no-files-found: error

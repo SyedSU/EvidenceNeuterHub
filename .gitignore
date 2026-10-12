@@ -9,3 +9,5 @@ hub-publisher.txt
 catalog-public.pem
 catalog-url.txt
 .superpowers/
+
+__pycache__/

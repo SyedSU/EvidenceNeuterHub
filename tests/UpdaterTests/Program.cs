@@ -189,6 +189,15 @@ try {
  var cacheFile=Path.Combine(epoch4.Root,"cache","test.cache");File.WriteAllText(cacheFile,"cache");
  epoch4.ClearDownloadStorage();Assert(!File.Exists(cacheFile) && epoch4.State().Current is not null && File.Exists(Path.Combine(saves,"save.json")),"storage cleanup preserves active version and personal saves");
  using(var held=new FileStream(Path.Combine(epoch4.Root,"install.lock"),FileMode.Open,FileAccess.ReadWrite,FileShare.None))await Reject(()=>Task.Run(()=>epoch4.ClearDownloadStorage()),"storage cleanup obeys operation lock");
+ var legacy5=new InstallManager(Path.Combine(folder,"legacy-fieldwork"),publicKey,client,saves);await legacy5.InstallAsync(envelope,null,null,CancellationToken.None);handler.Requests.Clear();
+ await legacy5.InstallAsync(Sign(fourth with{Version="0.5.0",Sequence=7}),null,null,CancellationToken.None);
+ Assert(Metadata.Verify(legacy5.State().Current!.Envelope,publicKey,offlineInstalled:true).Manifest.Version=="0.5.0" && handler.Requests.Count==1,"reviewed 0.5 forward transition reuses unchanged AI components");
+ Assert(File.ReadAllText(legacySave)=="legacy original preserved","fieldwork update preserves legacy saves");
+ await Reject(()=>legacy5.RollbackAsync(CancellationToken.None),"0.5 cannot roll back across save epoch");
+ var futureLegacy=new InstallManager(Path.Combine(folder,"legacy-unreviewed"),publicKey,client,saves);await futureLegacy.InstallAsync(envelope,null,null,CancellationToken.None);
+ await Reject(()=>futureLegacy.InstallAsync(Sign(fourth with{Version="0.6.0",Sequence=8}),null,null,CancellationToken.None),"unreviewed future cross-epoch transition rejected");
+ await epoch4.InstallAsync(Sign(fourth with{Version="0.5.0",Sequence=8}),null,null,CancellationToken.None);await epoch4.RollbackAsync(CancellationToken.None);
+ Assert(Metadata.Verify(epoch4.State().Current!.Envelope,publicKey,offlineInstalled:true).Manifest.Version=="0.4.2" && epoch4.State().HighestSequence==8,"same-epoch fieldwork rollback preserves anti-replay state");
  var malicious=new InstallManager(Path.Combine(folder,"malicious-state"),publicKey,client,saves);Directory.CreateDirectory(malicious.Root);File.WriteAllText(Path.Combine(malicious.Root,"active.json"),"{\"current\":{\"directory\":\"../outside\",\"envelope\":\"untrusted\"},\"highestSequence\":0}");
  await Reject(()=>Task.Run(()=>malicious.ClearDownloadStorage()),"storage cleanup rejects malicious active state");
  // Import a full trusted fixture from a separate folder; reuse by hashes, not an unsigned local version label.

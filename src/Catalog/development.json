@@ -43,7 +43,7 @@
       "id": "genesis",
       "name": "Genesis",
       "availability": "development",
-      "version": "0.4.0",
+      "version": "0.5.0",
       "saveSchema": 4,
       "sourceCommit": null,
       "components": {
@@ -61,11 +61,7 @@
         "Bundled local AI may require the Microsoft Visual C++ x64 runtime; the official prerequisite download needs internet."
       ],
       "releaseNotes": [
-        "Development version 0.4 adds a main menu and isolated named workshop profiles.",
-        "Explicit read-only import preserves legacy internal save versions 2/3 and their original workshop files.",
-        "Durable task history records completion, failure and cancellation; failed save writes roll back in-memory changes.",
-        "Document export includes Markdown and printable HTML with lists; PDF is available through the browser print dialog.",
-        "Profile saves use compatibility epoch 4; older releases cannot read new profiles, and cross-epoch rollback stays blocked."
+        "0.5 candidate: Mosswood, Tidal Archive, editable field notes and once-only expedition rewards. Signed public packages remain blocked."
       ]
     },
     {
