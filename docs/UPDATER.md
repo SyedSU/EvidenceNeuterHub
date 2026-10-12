@@ -1,3 +1,9 @@
+# Hub0.3 updater delta
+
+The0.3 milestone adds a separate independently verified after-exit Hub bootstrapper, shared signed catalog authorization/binding, final activation expiry/gate revalidation, measured transfer speed, safe cache/staging cleanup and settings location for new installs. It permits only the independently reviewed Genesis0.3.0(epoch1)→0.4.0(epoch4) binary transition with full save backup and explicit read-only legacy import in Genesis. Cross-epoch rollback is forbidden. Production pins/signing, root rotation/revocation/TUF, transactional Hub rollback and target-laptop acceptance remain gaps. See [current operations](RELEASE-OPERATIONS.md).
+
+## Historical0.2 design
+
 # Next milestone: verified releases
 
 No updater executes in 0.1.0. Do not add simulated queues, progress or successful installation states.

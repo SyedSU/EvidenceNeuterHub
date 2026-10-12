@@ -1,0 +1,567 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "channel",
+    "sequence",
+    "expires",
+    "publicDownloads",
+    "releaseGate",
+    "infrastructure",
+    "products"
+  ],
+  "properties": {
+    "schema": {
+      "const": 1
+    },
+    "channel": {
+      "const": "stable"
+    },
+    "sequence": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "expires": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "publicDownloads": {
+      "type": "boolean"
+    },
+    "releaseGate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "reasons",
+        "trustConfigured",
+        "signedArtifactsPublished",
+        "windowsAcceptancePassed",
+        "licensesApproved",
+        "authenticodeVerified"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "blocked",
+            "approved"
+          ]
+        },
+        "reasons": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "trustConfigured": {
+          "type": "boolean"
+        },
+        "signedArtifactsPublished": {
+          "type": "boolean"
+        },
+        "windowsAcceptancePassed": {
+          "type": "boolean"
+        },
+        "licensesApproved": {
+          "type": "boolean"
+        },
+        "authenticodeVerified": {
+          "type": "boolean"
+        }
+      }
+    },
+    "infrastructure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "availability",
+        "version",
+        "sourceCommit",
+        "release",
+        "screenshots",
+        "licenseNotices",
+        "description",
+        "requirements",
+        "releaseNotes"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "availability": {
+          "enum": [
+            "planned",
+            "development",
+            "available",
+            "unavailable"
+          ]
+        },
+        "version": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)$"
+        },
+        "sourceCommit": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[a-f0-9]{40}$"
+        },
+        "release": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "manifestUrl",
+                "version",
+                "sourceCommit",
+                "platform",
+                "download"
+              ],
+              "properties": {
+                "manifestUrl": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "version": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)$"
+                },
+                "sourceCommit": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "pattern": "^[a-f0-9]{40}$"
+                },
+                "platform": {
+                  "const": "windows-x64"
+                },
+                "download": {
+                  "anyOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "url",
+                        "size",
+                        "sha256"
+                      ],
+                      "properties": {
+                        "url": {
+                          "type": "string"
+                        },
+                        "size": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 4294967296
+                        },
+                        "sha256": {
+                          "type": "string",
+                          "pattern": "^[a-f0-9]{64}$"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        "screenshots": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "url",
+              "alt"
+            ],
+            "properties": {
+              "url": {
+                "type": "string",
+                "format": "uri-reference"
+              },
+              "alt": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        "licenseNotices": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "name",
+              "url"
+            ],
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "url": {
+                "type": "string",
+                "format": "uri-reference"
+              }
+            }
+          }
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "requirements": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "releaseNotes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "products": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 6,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "name",
+          "availability",
+          "version",
+          "sourceCommit",
+          "release",
+          "screenshots",
+          "licenseNotices",
+          "saveSchema",
+          "components",
+          "description",
+          "requirements",
+          "releaseNotes"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "availability": {
+            "enum": [
+              "planned",
+              "development",
+              "available",
+              "unavailable"
+            ]
+          },
+          "version": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)$"
+          },
+          "sourceCommit": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[a-f0-9]{40}$"
+          },
+          "release": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "manifestUrl",
+                  "version",
+                  "sourceCommit",
+                  "platform",
+                  "download"
+                ],
+                "properties": {
+                  "manifestUrl": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "version": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)$"
+                  },
+                  "sourceCommit": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "pattern": "^[a-f0-9]{40}$"
+                  },
+                  "platform": {
+                    "const": "windows-x64"
+                  },
+                  "download": {
+                    "anyOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "url",
+                          "size",
+                          "sha256"
+                        ],
+                        "properties": {
+                          "url": {
+                            "type": "string"
+                          },
+                          "size": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 4294967296
+                          },
+                          "sha256": {
+                            "type": "string",
+                            "pattern": "^[a-f0-9]{64}$"
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            ]
+          },
+          "screenshots": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "url",
+                "alt"
+              ],
+              "properties": {
+                "url": {
+                  "type": "string",
+                  "format": "uri-reference"
+                },
+                "alt": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            }
+          },
+          "licenseNotices": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "name",
+                "url"
+              ],
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "url": {
+                  "type": "string",
+                  "format": "uri-reference"
+                }
+              }
+            }
+          },
+          "saveSchema": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1
+          },
+          "components": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "runtime",
+              "model"
+            ],
+            "properties": {
+              "runtime": {
+                "anyOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "version",
+                      "sourceCommit",
+                      "licenseNotices"
+                    ],
+                    "properties": {
+                      "version": {
+                        "type": [
+                          "string",
+                          "null"
+                        ],
+                        "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)$"
+                      },
+                      "sourceCommit": {
+                        "type": [
+                          "string",
+                          "null"
+                        ],
+                        "pattern": "^[a-f0-9]{40}$"
+                      },
+                      "licenseNotices": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "name",
+                            "url"
+                          ],
+                          "properties": {
+                            "name": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "url": {
+                              "type": "string",
+                              "format": "uri-reference"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                ]
+              },
+              "model": {
+                "anyOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "version",
+                      "sourceCommit",
+                      "licenseNotices"
+                    ],
+                    "properties": {
+                      "version": {
+                        "type": [
+                          "string",
+                          "null"
+                        ],
+                        "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)$"
+                      },
+                      "sourceCommit": {
+                        "type": [
+                          "string",
+                          "null"
+                        ],
+                        "pattern": "^[a-f0-9]{40}$"
+                      },
+                      "licenseNotices": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "name",
+                            "url"
+                          ],
+                          "properties": {
+                            "name": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "url": {
+                              "type": "string",
+                              "format": "uri-reference"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1
+          },
+          "requirements": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "releaseNotes": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      }
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

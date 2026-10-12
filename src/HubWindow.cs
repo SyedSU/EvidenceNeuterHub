@@ -4,217 +4,120 @@ using EvidenceHub.Updates;
 namespace EvidenceHub;
 public sealed class HubWindow : Form
 {
-    readonly Color forest = Color.FromArgb(22, 48, 39), cream = Color.FromArgb(246, 243, 234);
-    readonly FlowLayoutPanel content = new() { Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown, WrapContents = false, AutoScroll = true, Padding = new Padding(32) };
-    readonly SettingsStore store = new(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "EvidenceNeuterHub", "settings.json"));
-    HubSettings settings = new();
-    Installation? installation;
-    string page = "Discover", problem = "";
-    bool settingsReadable = true;
-    readonly DownloadClient downloads = new();
-    readonly InstallManager manager;
-    CancellationTokenSource? operation;
-    VerifiedRelease? available;
-    string transferText = "No active download.";
-    Label? transferLabel;
-    ProgressBar? transferBar;
-    int transferPercent;
-    readonly Dictionary<string, Button> navigation = new();
-    static readonly (string Name, string Description, string Mark)[] products = {
-        ("Evidence Lab", "Your local voice, speech and audio studio.", "LAB"),
-        ("Evidence Bot", "A wake-word companion for your device.", "BOT"),
-        ("Evidence Academy", "Learn through explorable worlds and practice.", "ACA"),
-        ("Evidence Flow", "Connect ideas into useful automations.", "FLW"),
-        ("Evidence Council", "Research, write and review with a team of AI roles.", "COU")
-    };
+    readonly Color forest=Color.FromArgb(24,43,34),cream=Color.FromArgb(238,238,230),brass=Color.FromArgb(194,167,111);
+    Color Canvas=>settings.Appearance=="Light"?cream:Color.FromArgb(16,25,23);
+    Color Ink=>settings.Appearance=="Light"?forest:cream;
+    Color Surface=>settings.Appearance=="Light"?Color.FromArgb(230,229,219):Color.FromArgb(31,43,38);
+    readonly LayeredCanvas content=new(){Dock=DockStyle.Fill,FlowDirection=FlowDirection.TopDown,WrapContents=false,AutoScroll=true,Padding=new Padding(30)};
+    readonly string data=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"EvidenceNeuterHub");
+    readonly System.Windows.Forms.Timer ambient=new(){Interval=150};
+    readonly SettingsStore store;
+    readonly DownloadClient downloads=new();
+    readonly Dictionary<string,Button> navigation=new();
+    HubSettings settings=new(); InstallManager manager=null!; Installation? installation;
+    ProductCatalog catalog=Catalog.Development();CatalogEntry? detail;
+    string catalogEnvelope="";
+    string page="Discover",problem="",transferText="No active download.";
+    bool settingsReadable=true,bootstrapReady;
+    CancellationTokenSource? operation;readonly GenesisReleaseSelection selection=new();VerifiedRelease? available=>selection.Candidate;
+    Label? transferLabel;ProgressBar? transferBar;int transferPercent;
+    int WidthForContent=>Math.Max(260,content.ClientSize.Width-content.Padding.Horizontal-24);
     public HubWindow()
     {
-        var data = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "EvidenceNeuterHub");
-        manager = new InstallManager(Path.Combine(data, "Genesis"), ReleaseTrust.PublicKey(), downloads,
-            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "EvidenceGenesis"));
-        FormClosing += (_, e) => { if (operation is not null) { operation.Cancel(); e.Cancel = true; MessageBox.Show(this, "Canceling the operation. Wait for cleanup before closing."); } };
-        FormClosed += (_, _) => downloads.Dispose();
-        Text = "Evidence Neuter Hub"; Size = new Size(1080, 760); MinimumSize = new Size(800, 600);
-        BackColor = cream; Font = new Font("Segoe UI", 10); StartPosition = FormStartPosition.CenterScreen;
-        var sidebar = new FlowLayoutPanel { Dock = DockStyle.Left, Width = 210, BackColor = forest, Padding = new Padding(20, 32, 20, 20), FlowDirection = FlowDirection.TopDown, WrapContents = false };
-        var brand = new Label { Text = "EVIDENCE\nNEUTER", ForeColor = cream, Font = new Font(Font.FontFamily, 20, FontStyle.Bold), Size = new Size(170, 100) };
-        sidebar.Controls.Add(brand);
-        foreach (var name in new[] { "Discover", "My Library", "Downloads", "Settings" })
-        {
-            var button = new Button { Text = name, Size = new Size(170, 48), FlatStyle = FlatStyle.Flat, ForeColor = cream, BackColor = forest, TextAlign = ContentAlignment.MiddleLeft, Margin = new Padding(0, 4, 0, 4) };
-            button.FlatAppearance.BorderSize = 0; button.Click += (_, _) => { page = name; Render(); }; navigation.Add(name, button); sidebar.Controls.Add(button);
+        store=new SettingsStore(Path.Combine(data,"settings.json"));
+        try{settings=store.Load();}catch(Exception ex){settingsReadable=false;problem="Could not read settings. Your original file is preserved. Repair or rename settings.json after closing Hub. "+ex.Message;}
+        try{ConfigureManager();}catch(Exception ex){settingsReadable=false;problem="Storage settings need attention. Your settings file is preserved. "+ex.Message;settings=new();ConfigureManager();}
+        Text="Evidence Neuter Hub";Size=new Size(1120,800);MinimumSize=new Size(760,580);Font=new Font("Segoe UI",10);StartPosition=FormStartPosition.CenterScreen;KeyPreview=true;AutoScaleMode=AutoScaleMode.Dpi;AutoScaleDimensions=new SizeF(96,96);
+        var sidebar=new FlowLayoutPanel{Dock=DockStyle.Left,Width=200,BackColor=forest,Padding=new Padding(20,30,20,20),FlowDirection=FlowDirection.TopDown,WrapContents=false};
+        sidebar.Controls.Add(new Label{Text="EVIDENCE\nNEUTER",ForeColor=cream,Font=new Font(Font.FontFamily,19,FontStyle.Bold),Size=new Size(160,100)});
+        foreach(var name in new[]{"Discover","My Library","Downloads","Settings"}){
+            var button=new LayeredButton{Text=name,AccessibleName=name,Size=new Size(160,48),FlatStyle=FlatStyle.Flat,ForeColor=cream,BackColor=forest,TextAlign=ContentAlignment.MiddleLeft,Margin=new Padding(0,4,0,4)};
+            button.FlatAppearance.BorderSize=0;button.Click+=(_,_)=>Navigate(name);navigation.Add(name,button);sidebar.Controls.Add(button);
         }
-        sidebar.Controls.Add(new Label { Text = "HUB 0.2.0 • PREVIEW\nLocal first. Built with intent.", ForeColor = cream, Size = new Size(170, 70), Margin = new Padding(0, 60, 0, 0) });
-        Controls.Add(content); Controls.Add(sidebar);
-        try { settings = store.Load(); } catch (Exception ex) { settingsReadable = false; problem = "Could not read settings. Your file is preserved. Close the Hub and repair or rename settings.json. " + ex.Message; }
-        RefreshInstallation(); Render();
-        content.SizeChanged += (_, _) => { foreach (Control c in content.Controls) c.Width = Math.Max(440, content.ClientSize.Width - 80); };
+        sidebar.Controls.Add(new Label{Text="HUB 0.3.0 • PREVIEW\nLocal first.\nCtrl+1–4 to navigate",ForeColor=cream,Size=new Size(160,100),Margin=new Padding(0,50,0,0)});
+        Controls.Add(content);Controls.Add(sidebar);
+        FormClosing+=(_,e)=>{if(operation is not null && !bootstrapReady){operation.Cancel();e.Cancel=true;MessageBox.Show(this,"Canceling the operation. Wait for cleanup before closing.");}};
+        ambient.Tick+=(_,_)=>{if(settings.ReduceMotion||!ContainsFocus||WindowState==FormWindowState.Minimized||content.Wash<=1){ambient.Stop();content.Wash=0;}else content.Wash--;content.Invalidate();};
+        Activated+=(_,_)=>{if(!settings.ReduceMotion){content.Wash=6;ambient.Start();}};
+        Deactivate+=(_,_)=>{ambient.Stop();content.Wash=0;content.Invalidate();};
+        FormClosed+=(_,_)=>{ambient.Dispose();downloads.Dispose();};
+        KeyDown+=(_,e)=>{if(e.Control && e.KeyCode>=Keys.D1 && e.KeyCode<=Keys.D4){Navigate(new[]{"Discover","My Library","Downloads","Settings"}[(int)e.KeyCode-(int)Keys.D1]);e.Handled=true;}if(e.KeyCode==Keys.Escape && detail is not null){detail=null;Render();e.Handled=true;}};
+        content.SizeChanged+=(_,_)=>ResizeContent();RefreshInstallation();Render();
     }
-    void RefreshInstallation()
-    {
-        installation = null;
-        try
-        {
-            var state = manager.State();
-            if (state.Current is not null) { installation = Genesis.Detect(manager.DirectoryFor(state.Current)); return; }
-        }
-        catch (Exception ex) { problem = "Managed installation needs attention: " + ex.Message; return; }
-        if (settings.GenesisFolder is null) return;
-        try { installation = Genesis.Detect(settings.GenesisFolder); problem = ""; }
-        catch (Exception ex) { problem = "Genesis installation needs attention: " + ex.Message; }
+    void ConfigureManager(){var root=settings.InstallLocation is null?Path.Combine(data,"Genesis"):Path.Combine(settings.InstallLocation,"EvidenceNeuterHub","Genesis");InstallManager.RejectLinks(root);manager=new(root,ReleaseTrust.PublicKey(),downloads,Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),"EvidenceGenesis"));}
+    void Navigate(string next){page=next;detail=null;Render();navigation[next].Focus();}
+    void ResizeContent(){foreach(Control c in content.Controls){c.Width=WidthForContent;if(c is Label label)label.Height=TextRenderer.MeasureText(label.Text,label.Font,new Size(c.Width,int.MaxValue),TextFormatFlags.WordBreak).Height+12;} }
+    void RefreshInstallation(){installation=null;try{var state=manager.State();if(state.Current is not null){installation=Genesis.Detect(manager.DirectoryFor(state.Current));return;}if(settings.GenesisFolder is not null)installation=Genesis.Detect(settings.GenesisFolder);}catch(Exception ex){problem="Installation needs attention: "+ex.Message;}}
+    void Copy(string text,int size=10,bool bold=false){var label=new Label{Text=text,Width=WidthForContent,ForeColor=Ink,BackColor=Color.Transparent,Font=new Font(Font.FontFamily,size,bold?FontStyle.Bold:FontStyle.Regular),Margin=new Padding(0,0,0,14)};label.Height=TextRenderer.MeasureText(text,label.Font,new Size(label.Width,int.MaxValue),TextFormatFlags.WordBreak).Height+12;content.Controls.Add(label);}
+    Button Action(string text,EventHandler action){var b=new LayeredButton{Text=text,AccessibleName=text,Width=WidthForContent,Height=44,BackColor=Surface,ForeColor=Ink,FlatStyle=FlatStyle.Flat,Margin=new Padding(0,0,0,12),Enabled=operation is null};b.FlatAppearance.BorderColor=brass;b.Click+=action;content.Controls.Add(b);return b;}
+    void Check(string text,bool value,Action<bool> changed){var c=new CheckBox{Text=text,AccessibleName=text,Checked=value,Width=WidthForContent,Height=42,ForeColor=Ink,BackColor=Color.Transparent,Enabled=settingsReadable && operation is null,Margin=new Padding(0,0,0,12)};c.CheckedChanged+=(_,_)=>changed(c.Checked);content.Controls.Add(c);}
+    void Artwork(){using var stream=typeof(HubWindow).Assembly.GetManifestResourceStream("EvidenceHub.GenesisWorkshop");if(stream is null)return;using var original=Image.FromStream(stream);var picture=new PictureBox{Image=new Bitmap(original),SizeMode=PictureBoxSizeMode.Zoom,BackColor=Surface,Width=WidthForContent,Height=230,AccessibleName="Genesis workshop screenshot, development build in template mode",Margin=new Padding(0,0,0,12)};picture.Disposed+=(_,_)=>picture.Image?.Dispose();var frame=new LayeredSurface{BackColor=Surface,Width=WidthForContent,Height=264,Margin=new Padding(0,0,0,16),AccessibleName="Featured Genesis artwork"};picture.Dock=DockStyle.Fill;frame.Controls.Add(picture);content.Controls.Add(frame);Copy("Genesis 0.4.0 workshop • genuine development capture • template mode\nCaptured on Linux/Godot; Windows gameplay acceptance pending.");}
+    void Render(){
+        content.SuspendLayout();foreach(Control c in content.Controls.Cast<Control>().ToArray())c.Dispose();transferLabel=null;transferBar=null;BackColor=Canvas;content.BackColor=Canvas;content.Light=settings.Appearance=="Light";
+        foreach(var n in navigation)n.Value.BackColor=n.Key==page?Color.FromArgb(49,77,62):forest;
+        Copy(detail?.Name ?? page,28,true);if(problem.Length>0)Copy(problem);
+        if(detail is {} item){RenderDetail(item);}
+        else if(page=="Discover"){
+            Copy("Your local companion, and the tools to come.");Artwork();var genesis=catalog.Products[0];Copy("FEATURED / "+genesis.Name,20,true);Copy(genesis.Description);Copy(AvailabilityLabel(genesis.Availability)+" • public release gate: "+catalog.ReleaseGate.Status);Action("Explore Genesis",(_,_)=>{detail=genesis;Render();});
+            if(installation is not null)Action("Play Genesis offline",Play);
+            foreach(var p in catalog.Products.Skip(1))ProductPanel(p);
+        }else if(page=="My Library"){
+            Copy("Genesis",22,true);var status="Imported • version unverified";
+            try{if(manager.State().Current is {} current)status="Verified signed metadata • Genesis "+Metadata.Verify(current.Envelope,ReleaseTrust.PublicKey(),offlineInstalled:true).Manifest.Version+"\nFiles are verified again before every Play.";}catch(Exception ex){Copy("Verification needs attention: "+ex.Message);}
+            if(installation is null)Copy("Your library is empty. Locate an extracted Genesis installation to play offline.");
+            else{Copy(status+"\nLocation: "+installation.Folder);Copy(installation.HasRuntime && installation.HasModel?"AI runtime and model present • readiness is checked by Genesis at launch.":"AI files incomplete • template mode may be available. Keep brain/llama-server.exe and model/genesis.gguf with the game.");Action("Play Genesis offline",Play);}
+            Action(installation is null?"Locate Genesis folder…":"Import Genesis folder…",Locate).Enabled=settingsReadable && operation is null;
+            Action("Genesis requirements & release notes",(_,_)=>{detail=catalog.Products[0];Render();});Action("Check Genesis releases",CheckRelease);
+        }else if(page=="Downloads"){
+            Copy("Verified transfers",22,true);Copy("Game, runtime and model are verified separately. Unchanged components are reused; staging preserves the previous version.");
+            transferLabel=new Label{Text=transferText,Width=WidthForContent,Height=76,ForeColor=Ink,BackColor=Color.Transparent};content.Controls.Add(transferLabel);
+            transferBar=new ProgressBar{Width=WidthForContent,Height=18,Value=transferPercent,AccessibleName="Actual component transfer progress"};content.Controls.Add(transferBar);
+            if(operation is not null)Action("Cancel operation",(_,_)=>operation?.Cancel()).Enabled=true;
+            else{Action("Check Genesis releases",CheckRelease);if(available is not null){Copy("Available Genesis "+available.Manifest.Version+"\n"+string.Join(" • ",available.Manifest.Packages.Select(p=>p.Kind+" "+(p.Size/1048576d).ToString("N1")+" MiB")));Action("Install / update Genesis "+available.Manifest.Version,InstallRelease);}try{if(manager.State().Previous is not null)Action("Roll back to previous version",Rollback);}catch(Exception ex){Copy(ex.Message);}Action("Check and stage Hub update",UpdateHub);}
+        }else RenderSettings();
+        ResizeContent();content.ResumeLayout();
     }
-    void Copy(string text, int size = 10, bool bold = false)
-    {
-        content.Controls.Add(new Label { Text = text, AutoSize = false, Size = new Size(Math.Max(440, content.ClientSize.Width - 80), size > 20 ? 65 : 64), ForeColor = forest, Font = new Font(Font.FontFamily, size, bold ? FontStyle.Bold : FontStyle.Regular), Margin = new Padding(0, 0, 0, 12) });
+    void ProductPanel(CatalogEntry product){
+        var panel=new LayeredSurface{BackColor=Surface,Width=WidthForContent,Margin=new Padding(0,0,0,16),AccessibleName=product.Name};
+        var title=new Label{Text=product.Name,ForeColor=Ink,BackColor=Color.Transparent,Font=new Font(Font.FontFamily,16,FontStyle.Bold)};
+        var body=new Label{Text=product.Description+"\n"+AvailabilityLabel(product.Availability)+" • installation unavailable",ForeColor=Ink,BackColor=Color.Transparent,Font=Font};
+        var button=new LayeredButton{Text="View "+product.Name,AccessibleName="View "+product.Name,BackColor=Surface,ForeColor=Ink,Font=Font,Enabled=operation is null};button.Click+=(_,_)=>{detail=product;Render();};
+        panel.Controls.AddRange(new Control[]{title,body,button});
+        void LayoutPanel(){var inset=panel.Padding.Left;var width=Math.Max(100,panel.ClientSize.Width-panel.Padding.Horizontal);var heading=TextRenderer.MeasureText(title.Text,title.Font,new Size(width,int.MaxValue),TextFormatFlags.WordBreak).Height+6;var text=TextRenderer.MeasureText(body.Text,body.Font,new Size(width,int.MaxValue),TextFormatFlags.WordBreak).Height+10;var actionHeight=(int)(44*DeviceDpi/96f);title.SetBounds(inset,inset,width,heading);body.SetBounds(inset,inset+heading+6,width,text);button.SetBounds(inset,inset+heading+text+18,width,actionHeight);panel.Height=panel.Padding.Vertical+heading+text+18+actionHeight;}
+        panel.SizeChanged+=(_,_)=>LayoutPanel();LayoutPanel();content.Controls.Add(panel);
     }
-    Button Action(string text, EventHandler action)
-    {
-        var button = new Button { Text = text, Size = new Size(240, 42), BackColor = forest, ForeColor = cream, FlatStyle = FlatStyle.Flat, Margin = new Padding(0, 0, 0, 16) };
-        button.Click += action; button.Enabled = operation is null; content.Controls.Add(button); return button;
+    static string AvailabilityLabel(string value)=>value is "planned" or "development"?"In development":value=="available"?"Available":"Unavailable";
+    void RenderDetail(CatalogEntry p){Action("Back to "+page,(_,_)=>{detail=null;Render();});Copy(p.Description,14);Copy("Availability: "+AvailabilityLabel(p.Availability)+" • "+(p.Version is null?"No release version":p.Version+(p.Availability=="available"?"":" development target")));Copy("Requirements",16,true);Copy(p.Requirements.Length>0?string.Join("\n",p.Requirements):"Requirements have not been published.");Copy("Release notes",16,true);Copy(p.ReleaseNotes.Length>0?string.Join("\n",p.ReleaseNotes):"No public release notes yet.");if(p.Id=="genesis"){Copy("New profiles use save schema 4. Legacy profiles are imported read-only. Only the reviewed managed Genesis0.3.0 epoch1 →0.4.0 epoch4 forward transition is permitted. After updating, select Import legacy workshop in Genesis to create a new profile. Cross-epoch rollback is blocked; personal saves remain preserved.");if(installation is not null)Action("Play Genesis offline",Play);Action("Locate / import Genesis…",Locate).Enabled=settingsReadable && operation is null;Action("Check Genesis signed release",CheckRelease);}else Copy("Installation is unavailable until an approved signed release exists.");Copy("Public release gate: "+catalog.ReleaseGate.Status+"\n"+string.Join("\n",catalog.ReleaseGate.Reasons));}
+    void RenderSettings(){
+        Copy("Appearance & behavior",20,true);
+        var theme=new ComboBox{DropDownStyle=ComboBoxStyle.DropDownList,Width=WidthForContent,AccessibleName="Appearance",BackColor=Surface,ForeColor=Ink,Enabled=settingsReadable && operation is null};theme.Items.AddRange(new object[]{"Dark","Light"});theme.SelectedItem=settings.Appearance;theme.SelectedIndexChanged+=(_,_)=>{if(Persist(settings with{Appearance=theme.SelectedItem!.ToString()!}))Render();};content.Controls.Add(theme);
+        Check("Reduce motion (disable the brief background wash)",settings.ReduceMotion,value=>{if(Persist(settings with{ReduceMotion=value})&&value){ambient.Stop();content.Wash=0;content.Invalidate();}});Check("Minimize Hub after starting Genesis",settings.MinimizeOnPlay,value=>Persist(settings with{MinimizeOnPlay=value}));
+        Copy("Installation & storage",20,true);Copy("Managed game location: "+manager.Root);Action("Choose game installation location…",ChooseLocation).Enabled=settingsReadable && operation is null && CanChangeLocation();
+        Copy("Location changes apply to new managed installations. Existing versions and personal saves are preserved; moving installed versions requires a separately reviewed migration.");
+        try{Copy("Managed storage: "+(manager.StorageBytes()/1048576d).ToString("N1")+" MiB • active and retained versions, package cache, save backups.");}catch(Exception ex){Copy("Storage inspection failed: "+ex.Message);}
+        Action("Clear download cache & abandoned staging",(_,_)=>{if(MessageBox.Show(this,"Delete only generated download cache and abandoned staging? Active and previous versions, imported files and personal saves remain preserved.","Clear download storage",MessageBoxButtons.OKCancel)!=DialogResult.OK)return;try{manager.ClearDownloadStorage();problem="Download cache and abandoned staging cleared.";}catch(Exception ex){problem=ex.Message;}Render();});
+        Action("Recheck installation",(_,_)=>{RefreshInstallation();Render();});if(settings.GenesisFolder is not null)Action("Remove imported library entry",(_,_)=>{if(Persist(settings with{GenesisFolder=null})){RefreshInstallation();Render();}}).Enabled=settingsReadable && operation is null;
+        Copy("Signed product catalog",20,true);Copy("The bundled catalog is an unsigned development snapshot. It cannot enable downloads. Online refresh requires a build-pinned public key and public catalog URL.");Action("Refresh signed product catalog",RefreshCatalog);
+        Copy("Hub updates",20,true);Copy("Updates stage a verified installer and run a separate bootstrapper after Hub exits. Metadata key and known Windows publisher must be pinned in this build.");Action("Check and stage Hub update",UpdateHub);
     }
-    void Render()
-    {
-        content.SuspendLayout();
-        foreach (Control control in content.Controls.Cast<Control>().ToArray()) control.Dispose();
-        foreach (var item in navigation) item.Value.BackColor = item.Key == page ? Color.FromArgb(49, 77, 62) : forest;
-        Copy(page, 30, true);
-        if (problem.Length > 0) Copy(problem);
-        if (page is "Discover" or "My Library")
-        {
-            if (page == "Discover") Copy("Independent intelligence. One home for what comes next.");
-            if (page == "Discover") content.Controls.Add(new GenesisArtwork());
-            Copy("GEN / Evidence Genesis", 22, true);
-            Copy("A teachable 2.5D AI companion game. Bring your existing Windows installation into the Hub.");
-            string version = "Imported • version unverified";
-            try { if (manager.State().Current is { } current) version = "Managed Genesis " + Metadata.Verify(current.Envelope, ReleaseTrust.PublicKey(), offlineInstalled: true).Manifest.Version; }
-            catch (Exception ex) { problem = ex.Message; }
-            Copy(installation is null ? "Not connected • Development preview" : version + "\n" + installation.Folder);
-            if (installation is not null)
-            {
-                if (!installation.HasRuntime || !installation.HasModel) Copy("AI files are incomplete: keep brain/llama-server.exe and model/genesis.gguf beside the game. Template mode may remain available.");
-                Action("Play Genesis", Play);
-            }
-            Action(installation is null ? "Locate Genesis folder…" : "Import Genesis folder…", Locate).Enabled = settingsReadable && operation is null;
-            Action("Check Genesis releases", CheckRelease);
-            if (available is not null) Action("Install / update Genesis " + available.Manifest.Version, InstallRelease);
-            if (page == "Discover")
-                foreach (var product in products)
-                {
-                    Copy(product.Mark + " / " + product.Name, 16, true);
-                    Copy(product.Description + "\nIn development • Installation unavailable");
-                }
-            else if (installation is null) Copy("Your library is empty. Locate an extracted Genesis installation to play offline.");
-        }
-        else if (page == "Downloads")
-        {
-            Copy("Genesis installation & updates", 22, true);
-            Copy("Signed public releases only. Existing games remain playable offline. Game, AI runtime and model packages are verified separately.");
-            transferLabel = new Label { Text = transferText, Width = Math.Max(440, content.ClientSize.Width - 80), Height = 64, ForeColor = forest };
-            content.Controls.Add(transferLabel);
-            transferBar = new ProgressBar { Width = 440, Height = 18, Value = transferPercent, AccessibleName = "Current component download progress" };
-            content.Controls.Add(transferBar);
-            if (operation is not null) Action("Cancel operation", (_, _) => operation?.Cancel()).Enabled = true;
-            else
-            {
-                Action("Check Genesis releases", CheckRelease);
-                if (available is not null)
-                {
-                    Copy("Available: Genesis " + available.Manifest.Version + "\nPackages: " + string.Join(", ", available.Manifest.Packages.Select(p => p.Kind + " " + (p.Size / 1048576d).ToString("N1") + " MiB")));
-                    Copy("Verified unchanged installed or imported files are reused. Staging retains the previous version; sufficient space is required for copies. Close Genesis before installation.");
-                    Action("Install / update " + available.Manifest.Version, InstallRelease);
-                }
-                try { if (manager.State().Previous is not null) Action("Roll back to previous version", Rollback); } catch (Exception ex) { Copy(ex.Message); }
-            }
-        }
-        else
-        {
-            Copy("Local preferences", 22, true);
-            var minimize = new CheckBox { Text = "Minimize Hub after starting Genesis", Checked = settings.MinimizeOnPlay, AutoSize = true, Enabled = settingsReadable && operation is null, Margin = new Padding(0, 0, 0, 24) };
-            minimize.CheckedChanged += (_, _) => Persist(settings with { MinimizeOnPlay = minimize.Checked }); content.Controls.Add(minimize);
-            Copy("Settings are stored in your Windows local application data. Game files and Genesis saves remain untouched. No account or network connection is required.");
-            Action("Recheck installation", (_, _) => { RefreshInstallation(); Render(); });
-            if (settings.GenesisFolder is not null) Action("Remove from library", (_, _) => { if (Persist(settings with { GenesisFolder = null })) { installation = null; problem = ""; RefreshInstallation(); Render(); } }).Enabled = settingsReadable && operation is null;
-            Copy("Removing an imported library entry never deletes files. Managed versions and save backups remain in local application data. Hub self-updates are not implemented.");
-        }
-        content.ResumeLayout();
-    }
-    bool Persist(HubSettings next)
-    {
-        try { store.Save(next); settings = next; return true; }
-        catch (Exception ex) { MessageBox.Show(this, "Could not save settings. Previous preferences remain active.\n" + ex.Message, "Settings error", MessageBoxButtons.OK, MessageBoxIcon.Error); return false; }
-    }
-    void Locate(object? sender, EventArgs e)
-    {
-        using var dialog = new FolderBrowserDialog { Description = "Choose the Genesis folder containing EvidenceGenesis.exe", UseDescriptionForTitle = true, ShowNewFolderButton = false };
-        if (dialog.ShowDialog(this) != DialogResult.OK) return;
-        try
-        {
-            var found = Genesis.Detect(dialog.SelectedPath);
-            if (MessageBox.Show(this, "Only connect software you trust. The Hub detects a Windows x64 executable but does not authenticate this installation.\n\n" + found.Executable, "Connect Genesis?", MessageBoxButtons.OKCancel, MessageBoxIcon.Information) != DialogResult.OK) return;
-            if (!Persist(settings with { GenesisFolder = found.Folder })) return;
-            installation = found; problem = "";
-            if (manager.State().Current is not null) problem = "Import folder saved for verified file reuse. Play continues to use the managed installation.";
-            RefreshInstallation(); Render();
-        }
-        catch (Exception ex) { MessageBox.Show(this, ex.Message, "Could not connect Genesis", MessageBoxButtons.OK, MessageBoxIcon.Error); }
-    }
-    async void Play(object? sender, EventArgs e)
-    {
-        await RunOperation(async token =>
-        {
-            transferText = "Verifying installed files before launch…";
-            using var process = await manager.LaunchAsync(settings.GenesisFolder, token);
-            if (settings.MinimizeOnPlay) WindowState = FormWindowState.Minimized;
-            transferText = "Genesis process started. Game initialization is managed by Genesis.";
-        });
-    }
-    async Task RunOperation(Func<CancellationToken, Task> action)
-    {
-        if (operation is not null) return;
-        operation = new CancellationTokenSource(); Render();
-        try { await action(operation.Token); }
-        catch (OperationCanceledException) { transferText = "Canceled. The active installation was not changed unless activation had already completed."; }
-        catch (Exception ex) { problem = ex.Message; transferText = "Operation failed: " + ex.Message; }
-        finally { operation.Dispose(); operation = null; RefreshInstallation(); Render(); }
-    }
-    async void CheckRelease(object? sender, EventArgs e)
-    {
-        page = "Downloads";
-        await RunOperation(async token =>
-        {
-            available = null;
-            // Fail closed before making a network request when no production key is pinned.
-            if (string.IsNullOrWhiteSpace(ReleaseTrust.PublicKey())) throw new IOException("Release signing public key is not configured in this build. Existing imported games remain playable.");
-            transferText = "Checking signed public release metadata…";
-            var envelope = await downloads.MetadataAsync(token);
-            available = manager.VerifyNew(envelope);
-            transferText = "Verified release metadata for Genesis " + available.Manifest.Version + ". No packages downloaded yet.";
-            problem = "";
-        });
-    }
-    async void InstallRelease(object? sender, EventArgs e)
-    {
-        if (available is null) return;
-        var envelope = available.Envelope;
-        page = "Downloads";
-        await RunOperation(async token =>
-        {
-            var progress = new Progress<TransferProgress>(p =>
-            {
-                if (token.IsCancellationRequested || operation is null) return;
-                transferText = p.Component + " • " + p.Phase + (p.Total > 0 ? " • " + (p.Bytes / 1048576d).ToString("N1") + " / " + (p.Total / 1048576d).ToString("N1") + " MiB" : "");
-                transferPercent = p.Total > 0 ? (int)Math.Clamp(p.Bytes * 100 / p.Total, 0, 100) : 0;
-                if (transferLabel is { IsDisposed: false }) transferLabel.Text = transferText;
-                if (transferBar is { IsDisposed: false }) transferBar.Value = transferPercent;
-            });
-            await manager.InstallAsync(envelope, settings.GenesisFolder, progress, token);
-            transferText = "Genesis installed and file integrity verified. Play is available offline.";
-            problem = ""; available = null;
-        });
-    }
-    async void Rollback(object? sender, EventArgs e)
-    {
-        if (MessageBox.Show(this, "Switch to the previous verified game version? Saves will be backed up and preserved, not restored or deleted. Rollback is limited to the same save schema.", "Roll back Genesis", MessageBoxButtons.OKCancel) != DialogResult.OK) return;
-        await RunOperation(async token => { await manager.RollbackAsync(token); transferText = "Previous version activated. Saves preserved."; problem = ""; });
-    }
+    bool Persist(HubSettings next){if(!settingsReadable)return false;try{store.Save(next);settings=next;return true;}catch(Exception ex){MessageBox.Show(this,"Could not save settings. Previous preferences remain active.\n"+ex.Message,"Settings error",MessageBoxButtons.OK,MessageBoxIcon.Error);return false;}}
+    bool CanChangeLocation(){try{return manager.State().Current is null;}catch{return false;}}
+    void ChooseLocation(object? sender,EventArgs e){using var dialog=new FolderBrowserDialog{Description="Choose a parent folder for new managed game installations",UseDescriptionForTitle=true};if(dialog.ShowDialog(this)!=DialogResult.OK)return;try{InstallManager.RejectLinks(dialog.SelectedPath);if(manager.State().Current is not null)throw new IOException("Existing managed installations cannot be silently relocated.");if(Persist(settings with{InstallLocation=dialog.SelectedPath})){ConfigureManager();RefreshInstallation();Render();}}catch(Exception ex){MessageBox.Show(this,ex.Message,"Storage location");}}
+    void Locate(object? sender,EventArgs e){using var dialog=new FolderBrowserDialog{Description="Choose the Genesis folder containing EvidenceGenesis.exe",UseDescriptionForTitle=true,ShowNewFolderButton=false};if(dialog.ShowDialog(this)!=DialogResult.OK)return;try{var found=Genesis.Detect(dialog.SelectedPath);if(MessageBox.Show(this,"Only connect software you trust. This imported installation is not authenticated.\n\n"+found.Executable,"Connect Genesis?",MessageBoxButtons.OKCancel,MessageBoxIcon.Information)!=DialogResult.OK)return;if(!Persist(settings with{GenesisFolder=found.Folder}))return;RefreshInstallation();Render();}catch(Exception ex){MessageBox.Show(this,ex.Message,"Could not connect Genesis",MessageBoxButtons.OK,MessageBoxIcon.Error);}}
+    async Task RunOperation(Func<CancellationToken,Task> action){if(operation is not null)return;operation=new();problem="";Render();try{await action(operation.Token);}catch(OperationCanceledException){transferText="Canceled or timed out. Existing installations are preserved; retry when ready.";}catch(Exception ex){problem=ex.Message;transferText="Operation failed: "+ex.Message+"\nCheck trust configuration, network and free storage, then retry.";}finally{operation.Dispose();operation=null;RefreshInstallation();Render();}}
+    async void Play(object? sender,EventArgs e)=>await RunOperation(async token=>{transferText="Verifying installed files before launch…";using var process=await manager.LaunchAsync(settings.GenesisFolder,token);if(settings.MinimizeOnPlay)WindowState=FormWindowState.Minimized;transferText="Genesis process started; Genesis checks its own runtime readiness.";});
+    async void CheckRelease(object? sender,EventArgs e){page="Downloads";detail=null;await RunOperation(async token=>{selection.Invalidate();if(string.IsNullOrWhiteSpace(ReleaseTrust.PublicKey()))throw new IOException("Genesis release signing key is not configured in this build. Imported games remain playable offline.");var entry=Catalog.ReleaseFor(catalog,"genesis");transferText="Checking signed Genesis metadata…";selection.Check(catalog,await downloads.MetadataAsync(entry.Release!.ManifestUrl,token),manager);transferText="Verified Genesis "+selection.RequireCurrent(catalog,manager).Manifest.Version+" metadata. No packages downloaded yet.";});}
+    IProgress<TransferProgress> Progress(CancellationToken token)=>new Progress<TransferProgress>(p=>{if(token.IsCancellationRequested || operation is null)return;transferText=p.Component+" • "+p.Phase+(p.Total>0?" • "+(p.Bytes/1048576d).ToString("N1")+" / "+(p.Total/1048576d).ToString("N1")+" MiB":"")+(p.BytesPerSecond>0?" • "+(p.BytesPerSecond/1048576d).ToString("N2")+" MiB/s":"");transferPercent=p.Total>0?(int)Math.Clamp(p.Bytes*100/p.Total,0,100):0;if(transferLabel is{IsDisposed:false})transferLabel.Text=transferText;if(transferBar is{IsDisposed:false})transferBar.Value=transferPercent;});
+    async void InstallRelease(object? sender,EventArgs e){if(available is null)return;var envelope=available.Envelope;page="Downloads";await RunOperation(async token=>{selection.RequireCurrent(catalog,manager);selection.Invalidate();await manager.InstallAsync(envelope,settings.GenesisFolder,Progress(token),token,()=>Catalog.MatchGenesis(catalog,manager.VerifyNew(envelope).Manifest));transferText="Genesis installed and file integrity verified. Offline Play is available.";selection.Invalidate();});}
+    async void Rollback(object? sender,EventArgs e){if(MessageBox.Show(this,"Switch to the retained verified game version? Saves are backed up and preserved. Rollback requires the same save schema.","Roll back Genesis",MessageBoxButtons.OKCancel)!=DialogResult.OK)return;await RunOperation(async token=>{await manager.RollbackAsync(token);transferText="Previous version activated. Personal saves preserved.";});}
+    static string BuildResource(string name){using var s=typeof(HubWindow).Assembly.GetManifestResourceStream(name);return s is null?"":new StreamReader(s).ReadToEnd().Trim();}
+    async void RefreshCatalog(object? sender,EventArgs e)=>await RunOperation(async token=>{selection.Invalidate();var key=BuildResource("EvidenceHub.CatalogKey");var url=BuildResource("EvidenceHub.CatalogUrl");if(key.Length==0 || url.Length==0)throw new IOException("Signed catalog key or URL is not configured in this build. Development snapshot retained.");var sequencePath=Path.Combine(data,"catalog-sequence.json");InstallManager.RejectLinks(sequencePath);var highest=File.Exists(sequencePath)?System.Text.Json.JsonSerializer.Deserialize<long>(File.ReadAllText(sequencePath)):0;var signedCatalog=await downloads.MetadataAsync(url,token);var next=Catalog.Verify(signedCatalog,key,highest);Directory.CreateDirectory(data);var temp=sequencePath+"."+Guid.NewGuid().ToString("N")+".tmp";try{File.WriteAllText(temp,next.Sequence.ToString(System.Globalization.CultureInfo.InvariantCulture));File.Move(temp,sequencePath,true);}finally{if(File.Exists(temp))File.Delete(temp);}catalog=next;catalogEnvelope=signedCatalog;transferText="Signed product catalog verified. Product manifests still require independent verification before installation.";});
+    async void UpdateHub(object? sender,EventArgs e){page="Downloads";detail=null;bootstrapReady=false;await RunOperation(async token=>{
+        if(HubUpdate.PublicKey().Length==0 || HubUpdate.Publisher().Length==0)throw new IOException("Hub update key or known publisher is not configured in this build. Obtain a trusted Hub installer from the publisher.");
+        var entry=Catalog.ReleaseFor(catalog,"hub");var envelope=await downloads.MetadataAsync(entry.Release!.ManifestUrl,token);var manifest=HubUpdate.Verify(envelope,HubUpdate.PublicKey(),HubUpdate.Publisher(),HubUpdate.Highest(Path.Combine(data,"HubUpdates")),Environment.OSVersion.Version.Build);Catalog.MatchHub(catalog,manifest);var root=Path.Combine(data,"HubUpdates");Catalog.MatchHub(catalog,manifest);var stage=await HubUpdate.StageAsync(envelope,root,downloads,Progress(token),token);Catalog.MatchHub(catalog,manifest);File.WriteAllText(Path.Combine(stage,"catalog.json"),catalogEnvelope);
+        if(MessageBox.Show(this,"The Hub installer is verified. Close Hub and start its installation wizard now? The bootstrapper independently verifies it again after Hub exits.","Install Hub update",MessageBoxButtons.OKCancel)!=DialogResult.OK){Directory.Delete(stage,true);transferText="Hub update canceled before handoff.";return;}
+        var bootstrap=Path.Combine(stage,"EvidenceHubBootstrap.exe");File.Copy(Path.Combine(AppContext.BaseDirectory,"EvidenceHubBootstrap.exe"),bootstrap,false);
+        using var parent=Process.GetCurrentProcess();var info=new ProcessStartInfo(bootstrap){UseShellExecute=false};info.ArgumentList.Add(parent.Id.ToString());info.ArgumentList.Add(parent.StartTime.ToUniversalTime().Ticks.ToString());using var child=Process.Start(info) ?? throw new IOException("Bootstrapper did not start.");
+        using var deadline=CancellationTokenSource.CreateLinkedTokenSource(token);deadline.CancelAfter(TimeSpan.FromSeconds(10));var ready=Path.Combine(stage,"parent-verified.ready");try{while(!File.Exists(ready)){if(child.HasExited)throw new IOException("Bootstrapper refused handoff. Hub remains open.");await Task.Delay(100,deadline.Token);}token.ThrowIfCancellationRequested();bootstrapReady=true;transferText="Verified bootstrapper is waiting for Hub to exit. Installer completion is not yet known.";}finally{if(!bootstrapReady)await HubUpdate.CancelHandoffAsync(child,stage);}
+    });if(bootstrapReady)Close();}
 }
