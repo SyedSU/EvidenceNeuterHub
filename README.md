@@ -30,3 +30,5 @@ dotnet build tools/bootstrap/Bootstrap.csproj -c Release
 ```
 
 Tests use ephemeral RSA keys, synthetic packages and a real loopback TLS transfer. They are not published releases or gameplay benchmarks. CI produces a private Windows installer, test logs and real screenshots of four pages plus resize; these are evidence of native startup/navigation, not proof of high-DPI laptop, production publisher or real gameplay acceptance. See [operations](docs/RELEASE-OPERATIONS.md) and [validation](docs/VALIDATION.md). Existing PR1 remains the foundation dependency; no merge, public release or deployment is performed.
+
+Native theme refinement uses layered painted surfaces and hover/focus accents, not desktop transparency or blur. Optional background motion is a six-frame activation wash, disabled by reduced motion and stopped when inactive; no continuous render loop or GPU dependency.

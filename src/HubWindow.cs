@@ -4,12 +4,13 @@ using EvidenceHub.Updates;
 namespace EvidenceHub;
 public sealed class HubWindow : Form
 {
-    readonly Color forest=Color.FromArgb(22,48,39),cream=Color.FromArgb(246,243,234),brass=Color.FromArgb(199,171,111);
-    Color Canvas=>settings.Appearance=="Light"?cream:Color.FromArgb(18,25,23);
+    readonly Color forest=Color.FromArgb(24,43,34),cream=Color.FromArgb(238,238,230),brass=Color.FromArgb(194,167,111);
+    Color Canvas=>settings.Appearance=="Light"?cream:Color.FromArgb(16,25,23);
     Color Ink=>settings.Appearance=="Light"?forest:cream;
     Color Surface=>settings.Appearance=="Light"?Color.FromArgb(230,229,219):Color.FromArgb(31,43,38);
-    readonly FlowLayoutPanel content=new(){Dock=DockStyle.Fill,FlowDirection=FlowDirection.TopDown,WrapContents=false,AutoScroll=true,Padding=new Padding(30)};
+    readonly LayeredCanvas content=new(){Dock=DockStyle.Fill,FlowDirection=FlowDirection.TopDown,WrapContents=false,AutoScroll=true,Padding=new Padding(30)};
     readonly string data=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"EvidenceNeuterHub");
+    readonly System.Windows.Forms.Timer ambient=new(){Interval=150};
     readonly SettingsStore store;
     readonly DownloadClient downloads=new();
     readonly Dictionary<string,Button> navigation=new();
@@ -30,13 +31,16 @@ public sealed class HubWindow : Form
         var sidebar=new FlowLayoutPanel{Dock=DockStyle.Left,Width=200,BackColor=forest,Padding=new Padding(20,30,20,20),FlowDirection=FlowDirection.TopDown,WrapContents=false};
         sidebar.Controls.Add(new Label{Text="EVIDENCE\nNEUTER",ForeColor=cream,Font=new Font(Font.FontFamily,19,FontStyle.Bold),Size=new Size(160,100)});
         foreach(var name in new[]{"Discover","My Library","Downloads","Settings"}){
-            var button=new Button{Text=name,AccessibleName=name,Size=new Size(160,48),FlatStyle=FlatStyle.Flat,ForeColor=cream,BackColor=forest,TextAlign=ContentAlignment.MiddleLeft,Margin=new Padding(0,4,0,4)};
+            var button=new LayeredButton{Text=name,AccessibleName=name,Size=new Size(160,48),FlatStyle=FlatStyle.Flat,ForeColor=cream,BackColor=forest,TextAlign=ContentAlignment.MiddleLeft,Margin=new Padding(0,4,0,4)};
             button.FlatAppearance.BorderSize=0;button.Click+=(_,_)=>Navigate(name);navigation.Add(name,button);sidebar.Controls.Add(button);
         }
         sidebar.Controls.Add(new Label{Text="HUB 0.3.0 • PREVIEW\nLocal first.\nCtrl+1–4 to navigate",ForeColor=cream,Size=new Size(160,100),Margin=new Padding(0,50,0,0)});
         Controls.Add(content);Controls.Add(sidebar);
         FormClosing+=(_,e)=>{if(operation is not null && !bootstrapReady){operation.Cancel();e.Cancel=true;MessageBox.Show(this,"Canceling the operation. Wait for cleanup before closing.");}};
-        FormClosed+=(_,_)=>downloads.Dispose();
+        ambient.Tick+=(_,_)=>{if(settings.ReduceMotion||!ContainsFocus||WindowState==FormWindowState.Minimized||content.Wash<=1){ambient.Stop();content.Wash=0;}else content.Wash--;content.Invalidate();};
+        Activated+=(_,_)=>{if(!settings.ReduceMotion){content.Wash=6;ambient.Start();}};
+        Deactivate+=(_,_)=>{ambient.Stop();content.Wash=0;content.Invalidate();};
+        FormClosed+=(_,_)=>{ambient.Dispose();downloads.Dispose();};
         KeyDown+=(_,e)=>{if(e.Control && e.KeyCode>=Keys.D1 && e.KeyCode<=Keys.D4){Navigate(new[]{"Discover","My Library","Downloads","Settings"}[(int)e.KeyCode-(int)Keys.D1]);e.Handled=true;}if(e.KeyCode==Keys.Escape && detail is not null){detail=null;Render();e.Handled=true;}};
         content.SizeChanged+=(_,_)=>ResizeContent();RefreshInstallation();Render();
     }
@@ -44,19 +48,19 @@ public sealed class HubWindow : Form
     void Navigate(string next){page=next;detail=null;Render();navigation[next].Focus();}
     void ResizeContent(){foreach(Control c in content.Controls){c.Width=WidthForContent;if(c is Label label)label.Height=TextRenderer.MeasureText(label.Text,label.Font,new Size(c.Width,int.MaxValue),TextFormatFlags.WordBreak).Height+12;} }
     void RefreshInstallation(){installation=null;try{var state=manager.State();if(state.Current is not null){installation=Genesis.Detect(manager.DirectoryFor(state.Current));return;}if(settings.GenesisFolder is not null)installation=Genesis.Detect(settings.GenesisFolder);}catch(Exception ex){problem="Installation needs attention: "+ex.Message;}}
-    void Copy(string text,int size=10,bool bold=false){var label=new Label{Text=text,Width=WidthForContent,ForeColor=Ink,BackColor=Canvas,Font=new Font(Font.FontFamily,size,bold?FontStyle.Bold:FontStyle.Regular),Margin=new Padding(0,0,0,14)};label.Height=TextRenderer.MeasureText(text,label.Font,new Size(label.Width,int.MaxValue),TextFormatFlags.WordBreak).Height+12;content.Controls.Add(label);}
-    Button Action(string text,EventHandler action){var b=new Button{Text=text,AccessibleName=text,Width=WidthForContent,Height=44,BackColor=Surface,ForeColor=Ink,FlatStyle=FlatStyle.Flat,Margin=new Padding(0,0,0,12),Enabled=operation is null};b.FlatAppearance.BorderColor=brass;b.Click+=action;content.Controls.Add(b);return b;}
-    void Check(string text,bool value,Action<bool> changed){var c=new CheckBox{Text=text,AccessibleName=text,Checked=value,Width=WidthForContent,Height=42,ForeColor=Ink,BackColor=Canvas,Enabled=settingsReadable && operation is null,Margin=new Padding(0,0,0,12)};c.CheckedChanged+=(_,_)=>changed(c.Checked);content.Controls.Add(c);}
-    void Artwork(){using var stream=typeof(HubWindow).Assembly.GetManifestResourceStream("EvidenceHub.GenesisWorkshop");if(stream is null)return;using var original=Image.FromStream(stream);var picture=new PictureBox{Image=new Bitmap(original),SizeMode=PictureBoxSizeMode.Zoom,BackColor=Surface,Width=WidthForContent,Height=230,AccessibleName="Genesis workshop screenshot, development build in template mode",Margin=new Padding(0,0,0,12)};picture.Disposed+=(_,_)=>picture.Image?.Dispose();content.Controls.Add(picture);Copy("Genesis 0.4.0 workshop • genuine development capture • template mode\nCaptured on Linux/Godot; Windows gameplay acceptance pending.");}
+    void Copy(string text,int size=10,bool bold=false){var label=new Label{Text=text,Width=WidthForContent,ForeColor=Ink,BackColor=Color.Transparent,Font=new Font(Font.FontFamily,size,bold?FontStyle.Bold:FontStyle.Regular),Margin=new Padding(0,0,0,14)};label.Height=TextRenderer.MeasureText(text,label.Font,new Size(label.Width,int.MaxValue),TextFormatFlags.WordBreak).Height+12;content.Controls.Add(label);}
+    Button Action(string text,EventHandler action){var b=new LayeredButton{Text=text,AccessibleName=text,Width=WidthForContent,Height=44,BackColor=Surface,ForeColor=Ink,FlatStyle=FlatStyle.Flat,Margin=new Padding(0,0,0,12),Enabled=operation is null};b.FlatAppearance.BorderColor=brass;b.Click+=action;content.Controls.Add(b);return b;}
+    void Check(string text,bool value,Action<bool> changed){var c=new CheckBox{Text=text,AccessibleName=text,Checked=value,Width=WidthForContent,Height=42,ForeColor=Ink,BackColor=Color.Transparent,Enabled=settingsReadable && operation is null,Margin=new Padding(0,0,0,12)};c.CheckedChanged+=(_,_)=>changed(c.Checked);content.Controls.Add(c);}
+    void Artwork(){using var stream=typeof(HubWindow).Assembly.GetManifestResourceStream("EvidenceHub.GenesisWorkshop");if(stream is null)return;using var original=Image.FromStream(stream);var picture=new PictureBox{Image=new Bitmap(original),SizeMode=PictureBoxSizeMode.Zoom,BackColor=Surface,Width=WidthForContent,Height=230,AccessibleName="Genesis workshop screenshot, development build in template mode",Margin=new Padding(0,0,0,12)};picture.Disposed+=(_,_)=>picture.Image?.Dispose();var frame=new LayeredSurface{BackColor=Surface,Width=WidthForContent,Height=264,Margin=new Padding(0,0,0,16),AccessibleName="Featured Genesis artwork"};picture.Dock=DockStyle.Fill;frame.Controls.Add(picture);content.Controls.Add(frame);Copy("Genesis 0.4.0 workshop • genuine development capture • template mode\nCaptured on Linux/Godot; Windows gameplay acceptance pending.");}
     void Render(){
-        content.SuspendLayout();foreach(Control c in content.Controls.Cast<Control>().ToArray())c.Dispose();transferLabel=null;transferBar=null;BackColor=Canvas;content.BackColor=Canvas;
+        content.SuspendLayout();foreach(Control c in content.Controls.Cast<Control>().ToArray())c.Dispose();transferLabel=null;transferBar=null;BackColor=Canvas;content.BackColor=Canvas;content.Light=settings.Appearance=="Light";
         foreach(var n in navigation)n.Value.BackColor=n.Key==page?Color.FromArgb(49,77,62):forest;
         Copy(detail?.Name ?? page,28,true);if(problem.Length>0)Copy(problem);
         if(detail is {} item){RenderDetail(item);}
         else if(page=="Discover"){
             Copy("Your local companion, and the tools to come.");Artwork();var genesis=catalog.Products[0];Copy("FEATURED / "+genesis.Name,20,true);Copy(genesis.Description);Copy(AvailabilityLabel(genesis.Availability)+" • public release gate: "+catalog.ReleaseGate.Status);Action("Explore Genesis",(_,_)=>{detail=genesis;Render();});
             if(installation is not null)Action("Play Genesis offline",Play);
-            foreach(var p in catalog.Products.Skip(1)){Copy(p.Name,16,true);Copy(p.Description+"\n"+AvailabilityLabel(p.Availability)+" • installation unavailable");Action("View "+p.Name,(_,_)=>{detail=p;Render();});}
+            foreach(var p in catalog.Products.Skip(1))ProductPanel(p);
         }else if(page=="My Library"){
             Copy("Genesis",22,true);var status="Imported • version unverified";
             try{if(manager.State().Current is {} current)status="Verified signed metadata • Genesis "+Metadata.Verify(current.Envelope,ReleaseTrust.PublicKey(),offlineInstalled:true).Manifest.Version+"\nFiles are verified again before every Play.";}catch(Exception ex){Copy("Verification needs attention: "+ex.Message);}
@@ -66,19 +70,28 @@ public sealed class HubWindow : Form
             Action("Genesis requirements & release notes",(_,_)=>{detail=catalog.Products[0];Render();});Action("Check Genesis releases",CheckRelease);
         }else if(page=="Downloads"){
             Copy("Verified transfers",22,true);Copy("Game, runtime and model are verified separately. Unchanged components are reused; staging preserves the previous version.");
-            transferLabel=new Label{Text=transferText,Width=WidthForContent,Height=76,ForeColor=Ink,BackColor=Canvas};content.Controls.Add(transferLabel);
+            transferLabel=new Label{Text=transferText,Width=WidthForContent,Height=76,ForeColor=Ink,BackColor=Color.Transparent};content.Controls.Add(transferLabel);
             transferBar=new ProgressBar{Width=WidthForContent,Height=18,Value=transferPercent,AccessibleName="Actual component transfer progress"};content.Controls.Add(transferBar);
             if(operation is not null)Action("Cancel operation",(_,_)=>operation?.Cancel()).Enabled=true;
             else{Action("Check Genesis releases",CheckRelease);if(available is not null){Copy("Available Genesis "+available.Manifest.Version+"\n"+string.Join(" • ",available.Manifest.Packages.Select(p=>p.Kind+" "+(p.Size/1048576d).ToString("N1")+" MiB")));Action("Install / update Genesis "+available.Manifest.Version,InstallRelease);}try{if(manager.State().Previous is not null)Action("Roll back to previous version",Rollback);}catch(Exception ex){Copy(ex.Message);}Action("Check and stage Hub update",UpdateHub);}
         }else RenderSettings();
         ResizeContent();content.ResumeLayout();
     }
+    void ProductPanel(CatalogEntry product){
+        var panel=new LayeredSurface{BackColor=Surface,Width=WidthForContent,Margin=new Padding(0,0,0,16),AccessibleName=product.Name};
+        var title=new Label{Text=product.Name,ForeColor=Ink,BackColor=Color.Transparent,Font=new Font(Font.FontFamily,16,FontStyle.Bold)};
+        var body=new Label{Text=product.Description+"\n"+AvailabilityLabel(product.Availability)+" • installation unavailable",ForeColor=Ink,BackColor=Color.Transparent,Font=Font};
+        var button=new LayeredButton{Text="View "+product.Name,AccessibleName="View "+product.Name,BackColor=Surface,ForeColor=Ink,Font=Font,Enabled=operation is null};button.Click+=(_,_)=>{detail=product;Render();};
+        panel.Controls.AddRange(new Control[]{title,body,button});
+        void LayoutPanel(){var inset=panel.Padding.Left;var width=Math.Max(100,panel.ClientSize.Width-panel.Padding.Horizontal);var heading=TextRenderer.MeasureText(title.Text,title.Font,new Size(width,int.MaxValue),TextFormatFlags.WordBreak).Height+6;var text=TextRenderer.MeasureText(body.Text,body.Font,new Size(width,int.MaxValue),TextFormatFlags.WordBreak).Height+10;var actionHeight=(int)(44*DeviceDpi/96f);title.SetBounds(inset,inset,width,heading);body.SetBounds(inset,inset+heading+6,width,text);button.SetBounds(inset,inset+heading+text+18,width,actionHeight);panel.Height=panel.Padding.Vertical+heading+text+18+actionHeight;}
+        panel.SizeChanged+=(_,_)=>LayoutPanel();LayoutPanel();content.Controls.Add(panel);
+    }
     static string AvailabilityLabel(string value)=>value is "planned" or "development"?"In development":value=="available"?"Available":"Unavailable";
     void RenderDetail(CatalogEntry p){Action("Back to "+page,(_,_)=>{detail=null;Render();});Copy(p.Description,14);Copy("Availability: "+AvailabilityLabel(p.Availability)+" • "+(p.Version is null?"No release version":p.Version+(p.Availability=="available"?"":" development target")));Copy("Requirements",16,true);Copy(p.Requirements.Length>0?string.Join("\n",p.Requirements):"Requirements have not been published.");Copy("Release notes",16,true);Copy(p.ReleaseNotes.Length>0?string.Join("\n",p.ReleaseNotes):"No public release notes yet.");if(p.Id=="genesis"){Copy("New profiles use save schema 4. Legacy profiles are imported read-only. Only the reviewed managed Genesis0.3.0 epoch1 →0.4.0 epoch4 forward transition is permitted. After updating, select Import legacy workshop in Genesis to create a new profile. Cross-epoch rollback is blocked; personal saves remain preserved.");if(installation is not null)Action("Play Genesis offline",Play);Action("Locate / import Genesis…",Locate).Enabled=settingsReadable && operation is null;Action("Check Genesis signed release",CheckRelease);}else Copy("Installation is unavailable until an approved signed release exists.");Copy("Public release gate: "+catalog.ReleaseGate.Status+"\n"+string.Join("\n",catalog.ReleaseGate.Reasons));}
     void RenderSettings(){
         Copy("Appearance & behavior",20,true);
         var theme=new ComboBox{DropDownStyle=ComboBoxStyle.DropDownList,Width=WidthForContent,AccessibleName="Appearance",BackColor=Surface,ForeColor=Ink,Enabled=settingsReadable && operation is null};theme.Items.AddRange(new object[]{"Dark","Light"});theme.SelectedItem=settings.Appearance;theme.SelectedIndexChanged+=(_,_)=>{if(Persist(settings with{Appearance=theme.SelectedItem!.ToString()!}))Render();};content.Controls.Add(theme);
-        Check("Reduce motion (Hub uses no animated transitions)",settings.ReduceMotion,value=>Persist(settings with{ReduceMotion=value}));Check("Minimize Hub after starting Genesis",settings.MinimizeOnPlay,value=>Persist(settings with{MinimizeOnPlay=value}));
+        Check("Reduce motion (disable the brief background wash)",settings.ReduceMotion,value=>{if(Persist(settings with{ReduceMotion=value})&&value){ambient.Stop();content.Wash=0;content.Invalidate();}});Check("Minimize Hub after starting Genesis",settings.MinimizeOnPlay,value=>Persist(settings with{MinimizeOnPlay=value}));
         Copy("Installation & storage",20,true);Copy("Managed game location: "+manager.Root);Action("Choose game installation location…",ChooseLocation).Enabled=settingsReadable && operation is null && CanChangeLocation();
         Copy("Location changes apply to new managed installations. Existing versions and personal saves are preserved; moving installed versions requires a separately reviewed migration.");
         try{Copy("Managed storage: "+(manager.StorageBytes()/1048576d).ToString("N1")+" MiB • active and retained versions, package cache, save backups.");}catch(Exception ex){Copy("Storage inspection failed: "+ex.Message);}
