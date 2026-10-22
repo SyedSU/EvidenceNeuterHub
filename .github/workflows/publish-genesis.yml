@@ -48,7 +48,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 8.0.x
+          dotnet-version: 10.0.402
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -87,7 +87,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 8.0.x
+          dotnet-version: 10.0.402
       - uses: actions/download-artifact@v4
         with:
           name: genesis-reviewed-native-package

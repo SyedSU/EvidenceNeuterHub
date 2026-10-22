@@ -44,7 +44,7 @@ jobs:
           if ($LASTEXITCODE) { throw 'Reviewed commit must be on main' }
       - uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 8.0.x
+          dotnet-version: 10.0.402
       - name: Build and verify approved publisher (certificate already provisioned)
         shell: pwsh
         env:

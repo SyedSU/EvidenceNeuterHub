@@ -7,13 +7,13 @@ permissions:
   contents: read
 jobs:
   build:
-    runs-on: windows-2022
+    runs-on: windows-latest
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 8.0.x
+          dotnet-version: 10.0.402
       - run: choco install nsis --version=3.11 -y --no-progress
       - shell: pwsh
         run: ./installer/build.ps1
@@ -34,4 +34,5 @@ jobs:
             artifacts/SHA256.txt
             artifacts/windows-*.png
             artifacts/*-tests.log
+          retention-days: 3
           if-no-files-found: error

@@ -35,6 +35,8 @@ var saves=Path.Combine(folder,"external-saves");Directory.CreateDirectory(saves)
 var manager=new InstallManager(Path.Combine(folder,"managed"),publicKey,client,saves);
 var first=Fixture("0.3.0",1);var envelope=Sign(first);
 try {
+ await Reject(()=>{WindowsPublisher.Verify("missing-installer.exe","");return Task.CompletedTask;},"invalid publisher pin rejected before native trust calls");
+ await Reject(()=>{WindowsPublisher.Verify("missing-installer.exe",new string('A',64));return Task.CompletedTask;},"missing installer rejected before native trust calls");
  var operatorWorkspace=Path.Combine(Path.GetTempPath(),"EvidenceNeuterAcceptance",Guid.NewGuid().ToString("N"));
  Directory.CreateDirectory(operatorWorkspace);Directory.CreateDirectory(Path.Combine(operatorWorkspace,"saves"));
  try {

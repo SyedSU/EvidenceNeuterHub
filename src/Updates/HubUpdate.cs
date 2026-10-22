@@ -90,16 +90,32 @@ public static class WindowsPublisher
 {
     [StructLayout(LayoutKind.Sequential,CharSet=CharSet.Unicode)] struct FileInfo {public uint Size;public IntPtr Path;public IntPtr Handle;public IntPtr Subject;}
     [StructLayout(LayoutKind.Sequential)] struct TrustData {public uint Size;public IntPtr Policy;public IntPtr Sip;public uint Ui;public uint Revocation;public uint Choice;public IntPtr File;public uint StateAction;public IntPtr State;public IntPtr Url;public uint Flags;public uint Context;public IntPtr Signature;}
+    // Only the documented leading fields of CRYPT_PROVIDER_CERT are needed.
+    [StructLayout(LayoutKind.Sequential)] struct ProviderCertificate {public uint Size;public IntPtr Context;}
     [DllImport("wintrust.dll",ExactSpelling=true,CharSet=CharSet.Unicode)] static extern int WinVerifyTrust(IntPtr window,ref Guid action,ref TrustData data);
+    [DllImport("wintrust.dll",ExactSpelling=true)] static extern IntPtr WTHelperProvDataFromStateData(IntPtr state);
+    [DllImport("wintrust.dll",ExactSpelling=true)] static extern IntPtr WTHelperGetProvSignerFromChain(IntPtr provider,uint signer,[MarshalAs(UnmanagedType.Bool)] bool counterSigner,uint counterSignerIndex);
+    [DllImport("wintrust.dll",ExactSpelling=true)] static extern IntPtr WTHelperGetProvCertFromChain(IntPtr signer,uint certificate);
     public static void Verify(string path,string fingerprint)
     {
+        if(!Regex.IsMatch(fingerprint??"","^[A-F0-9]{64}$"))throw new CryptographicException("Reviewed publisher SHA256 pin is required.");
+        if(!System.IO.File.Exists(path))throw new IOException("Installer file is missing.");
+        if(!OperatingSystem.IsWindows())throw new IOException("Windows publisher verification requires Windows.");
         var pathPtr=Marshal.StringToCoTaskMemUni(path);var infoPtr=Marshal.AllocHGlobal(Marshal.SizeOf<FileInfo>());
         var data=new TrustData{Size=(uint)Marshal.SizeOf<TrustData>(),Ui=2,Revocation=1,Choice=1,File=infoPtr,StateAction=1,Flags=0x40};
         var action=new Guid("00AAC56B-CD44-11d0-8CC2-00C04FC295EE");
         try {
             Marshal.StructureToPtr(new FileInfo{Size=(uint)Marshal.SizeOf<FileInfo>(),Path=pathPtr},infoPtr,false);
             if(WinVerifyTrust(new IntPtr(-1),ref action,ref data)!=0)throw new IOException("Windows rejected installer Authenticode trust or revocation status.");
-            using var certificate=new X509Certificate2(X509Certificate.CreateFromSignedFile(path));
+            // Read the signer from this successful trust verification, not by
+            // reparsing the file with the obsolete format-guessing loader.
+            var provider=WTHelperProvDataFromStateData(data.State);
+            var signer=provider==IntPtr.Zero?IntPtr.Zero:WTHelperGetProvSignerFromChain(provider,0,false,0);
+            var entry=signer==IntPtr.Zero?IntPtr.Zero:WTHelperGetProvCertFromChain(signer,0);
+            if(entry==IntPtr.Zero)throw new CryptographicException("Verified Authenticode signer unavailable.");
+            var leaf=Marshal.PtrToStructure<ProviderCertificate>(entry);
+            if(leaf.Size<Marshal.SizeOf<ProviderCertificate>() || leaf.Context==IntPtr.Zero)throw new CryptographicException("Verified signer certificate unavailable.");
+            using var certificate=new X509Certificate2(leaf.Context);
             if(Convert.ToHexString(SHA256.HashData(certificate.RawData))!=fingerprint)throw new IOException("Installer was signed by an unrecognized publisher.");
         }finally{data.StateAction=2;WinVerifyTrust(new IntPtr(-1),ref action,ref data);Marshal.FreeHGlobal(infoPtr);Marshal.FreeCoTaskMem(pathPtr);}
     }

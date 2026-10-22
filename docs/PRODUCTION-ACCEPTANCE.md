@@ -29,7 +29,7 @@ Production build identities must differ: self-update deliberately rejects a same
 Build `dotnet build tools/acceptance/Acceptance.csproj -c Release`, then run:
 
 ```
-dotnet tools/acceptance/bin/Release/net8.0/Acceptance.dll snapshot inputs.json new-evidence-directory
+dotnet tools/acceptance/bin/Release/net10.0/Acceptance.dll snapshot inputs.json new-evidence-directory
 ```
 
 Use a dedicated disposable Windows account and dedicated managed/save roots containing deliberately created acceptance saves. Do not run destructive failure/cancel/rollback exercises against personal saves. Stop game writes before hashing. The collector does not lock the client or provide an atomic filesystem snapshot: pause activity, collect before/after at quiescent boundaries, and repeat if files changed during measurement. It opens files read-only, rejects reparse links, refuses existing/nested output destinations, writes hashes/lengths/process identity only, and never copies save contents or performs install/launch/approval. Reports still contain local paths/process identities; review/redact personal identifiers before sharing. Keep outputs outside Git.

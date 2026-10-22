@@ -22,7 +22,7 @@ sealed class HttpsFixture : IDisposable
         using var generated = request.CreateSelfSigned(DateTimeOffset.UtcNow.AddMinutes(-1), DateTimeOffset.UtcNow.AddHours(1));
         // Schannel requires a provider-backed key, not a CreateSelfSigned ephemeral handle.
         // Do not PersistKeySet: disposing this imported test certificate removes its temporary key.
-        certificate = new X509Certificate2(generated.Export(X509ContentType.Pfx), "", X509KeyStorageFlags.UserKeySet | X509KeyStorageFlags.Exportable);
+        certificate = X509CertificateLoader.LoadPkcs12(generated.Export(X509ContentType.Pfx), "", X509KeyStorageFlags.UserKeySet | X509KeyStorageFlags.Exportable);
         listener.Start(); server = Serve();
     }
     public HttpMessageHandler Handler()

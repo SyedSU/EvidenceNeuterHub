@@ -1,16 +1,17 @@
 using System.Drawing.Drawing2D;
+using System.ComponentModel;
 namespace EvidenceHub;
 sealed class LayeredCanvas:FlowLayoutPanel
 {
- public bool Light {get;set;}
- public int Wash {get;set;}
+ [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)] public bool Light {get;set;}
+ [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)] public int Wash {get;set;}
  public LayeredCanvas(){DoubleBuffered=true;ResizeRedraw=true;}
  protected override void OnPaintBackground(PaintEventArgs e){if(ClientSize.Width<1||ClientSize.Height<1)return;using var brush=new LinearGradientBrush(ClientRectangle,BackColor,Light?Color.FromArgb(225,231,218):Color.FromArgb(25+Wash,42+Wash,34+Wash),35f);e.Graphics.FillRectangle(brush,ClientRectangle);using var line=new Pen(Color.FromArgb(55,194,167,111));e.Graphics.DrawLine(line,0,0,ClientSize.Width,0);}
 }
 sealed class LayeredButton:Button
 {
  bool hover;
- public Color Accent {get;set;}=Color.FromArgb(194,167,111);
+ [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)] public Color Accent {get;set;}=Color.FromArgb(194,167,111);
  public LayeredButton(){FlatStyle=FlatStyle.Flat;FlatAppearance.BorderSize=0;DoubleBuffered=true;Cursor=Cursors.Hand;}
  protected override void OnMouseEnter(EventArgs e){hover=true;Invalidate();base.OnMouseEnter(e);}
  protected override void OnMouseLeave(EventArgs e){hover=false;Invalidate();base.OnMouseLeave(e);}
