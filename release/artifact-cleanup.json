@@ -1,0 +1,126 @@
+{
+  "schema": 1,
+  "repository": "SyedSU/EvidenceNeuterHub",
+  "reason": "Owner authorized obsolete Actions artifact cleanup; retain two newest 0.3 test archives and all other versions, source locks, logs and release evidence.",
+  "protectedArtifactIds": [
+    11762106854,
+    11707646185,
+    11654882449,
+    11642945036,
+    11639024486
+  ],
+  "approved": [
+    {
+      "created_at": "2026-10-11T15:40:38Z",
+      "digest": "sha256:f4ecd618de45517cb0e2214ba98e249d5b41e81fdfef2bc21a7b566b6917a387",
+      "expired": false,
+      "expires_at": "2027-01-09T15:34:53Z",
+      "id": 11707530253,
+      "name": "EvidenceNeuterHub-Windows-0.3.0-test-evidence",
+      "size_in_bytes": 99009921,
+      "workflow_run": {
+        "head_branch": "feat/coordinated-hub",
+        "head_repository_id": 1411939704,
+        "head_sha": "90ab50c039a3ea8c0bc5c56bef4bce1ba261c118",
+        "id": 38151868195,
+        "repository_id": 1411939704
+      }
+    },
+    {
+      "created_at": "2026-10-11T14:59:37Z",
+      "digest": "sha256:2418dfd935524a34cb5deccf1ebfde32db3a0e843426a5d93551e77b88e96958",
+      "expired": false,
+      "expires_at": "2027-01-09T14:56:48Z",
+      "id": 11706466820,
+      "name": "EvidenceNeuterHub-Windows-0.3.0-test-evidence",
+      "size_in_bytes": 99010039,
+      "workflow_run": {
+        "head_branch": "feat/coordinated-hub",
+        "head_repository_id": 1411939704,
+        "head_sha": "0e7033b601cb1ca40c7b4683d50f5d8b6e89a7bb",
+        "id": 38149240893,
+        "repository_id": 1411939704
+      }
+    },
+    {
+      "created_at": "2026-10-11T14:55:53Z",
+      "digest": "sha256:3a7367f9247f6c17ce46eb81ee32a1485155e2ab11c4a83fbea60fc273cae465",
+      "expired": false,
+      "expires_at": "2027-01-09T14:52:42Z",
+      "id": 11706311499,
+      "name": "EvidenceNeuterHub-Windows-0.3.0-test-evidence",
+      "size_in_bytes": 99010251,
+      "workflow_run": {
+        "head_branch": "feat/coordinated-hub",
+        "head_repository_id": 1411939704,
+        "head_sha": "fd48de050b23d63f43a278ea2f56ccef4dc16aa4",
+        "id": 38148962464,
+        "repository_id": 1411939704
+      }
+    },
+    {
+      "created_at": "2026-10-10T09:05:27Z",
+      "digest": "sha256:ae75d6da774a65dc8c8ce863f3f08965292983b05ffe842e6063a594f6c5c347",
+      "expired": false,
+      "expires_at": "2027-01-08T09:02:46Z",
+      "id": 11665556332,
+      "name": "EvidenceNeuterHub-Windows-0.3.0-test-evidence",
+      "size_in_bytes": 99010314,
+      "workflow_run": {
+        "head_branch": "feat/coordinated-hub",
+        "head_repository_id": 1411939704,
+        "head_sha": "4bc35c4b720afb25a923b0975a58b50d3be82b99",
+        "id": 38039996620,
+        "repository_id": 1411939704
+      }
+    },
+    {
+      "created_at": "2026-10-10T08:57:06Z",
+      "digest": "sha256:5abd8b7d49a5aa93298e3392a3f3a24b24b0f173a5c514fb06d97828a19745a8",
+      "expired": false,
+      "expires_at": "2027-01-08T08:53:30Z",
+      "id": 11665341103,
+      "name": "EvidenceNeuterHub-Windows-0.3.0-test-evidence",
+      "size_in_bytes": 98948233,
+      "workflow_run": {
+        "head_branch": "feat/coordinated-hub",
+        "head_repository_id": 1411939704,
+        "head_sha": "59c083057db00ebc7e9149dac686f2add741245e",
+        "id": 38039450562,
+        "repository_id": 1411939704
+      }
+    },
+    {
+      "created_at": "2026-10-10T08:51:01Z",
+      "digest": "sha256:a9efa175f0ac8b44f4afc47169af8e0b096ab92f750c229d38d51797e66fe114",
+      "expired": false,
+      "expires_at": "2027-01-08T08:43:32Z",
+      "id": 11664688192,
+      "name": "EvidenceNeuterHub-Windows-0.3.0-test-evidence",
+      "size_in_bytes": 98940259,
+      "workflow_run": {
+        "head_branch": "feat/coordinated-hub",
+        "head_repository_id": 1411939704,
+        "head_sha": "c4c090920ff8012b6da66e367ca6df344fca1041",
+        "id": 38038874248,
+        "repository_id": 1411939704
+      }
+    },
+    {
+      "created_at": "2026-10-10T09:01:42Z",
+      "digest": "sha256:29b64148f1246bec69db560243b6c5b8e9c27ea905599b33c5812777d2f92f78",
+      "expired": false,
+      "expires_at": "2027-01-08T08:58:10Z",
+      "id": 11664684040,
+      "name": "EvidenceNeuterHub-Windows-0.3.0-test-evidence",
+      "size_in_bytes": 98963199,
+      "workflow_run": {
+        "head_branch": "feat/coordinated-hub",
+        "head_repository_id": 1411939704,
+        "head_sha": "739afc021554d4307beecc68ddfdc89c55220598",
+        "id": 38039720495,
+        "repository_id": 1411939704
+      }
+    }
+  ]
+}

@@ -1,20 +1,38 @@
-name: Inspect Actions artifact storage
+name: Maintain reviewed Actions artifact storage
 on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: ['.github/workflows/storage.yml']
+    paths: ['.github/workflows/storage.yml', 'release/artifact-cleanup.json', 'tools/release/artifact_cleanup.py']
 permissions:
-  actions: read
+  actions: write
   contents: read
+concurrency:
+  group: reviewed-artifact-maintenance
+  cancel-in-progress: false
 jobs:
   inventory:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
+      - name: Refuse non-main maintenance
+        if: github.ref != 'refs/heads/main'
+        run: exit 1
       - name: List artifact identities and sizes without deleting anything
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh --version
           gh api "repos/$GITHUB_REPOSITORY/actions/artifacts?per_page=100" --paginate --jq '.artifacts[] | {id,name,size_in_bytes,expired,created_at,expires_at,digest,workflow_run}'
+      - name: Remove only the seven reviewed obsolete test archives
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/contents/tools/release/artifact_cleanup.py?ref=$GITHUB_SHA" --jq .content | base64 --decode > "$RUNNER_TEMP/artifact_cleanup.py"
+          gh api "repos/$GITHUB_REPOSITORY/contents/release/artifact-cleanup.json?ref=$GITHUB_SHA" --jq .content | base64 --decode > "$RUNNER_TEMP/artifact-cleanup.json"
+          python "$RUNNER_TEMP/artifact_cleanup.py" "$RUNNER_TEMP/artifact-cleanup.json" --apply
+      - name: Record remaining artifact identities
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api "repos/$GITHUB_REPOSITORY/actions/artifacts?per_page=100" --paginate --jq '.artifacts[] | {id,name,size_in_bytes,workflow_run}'
