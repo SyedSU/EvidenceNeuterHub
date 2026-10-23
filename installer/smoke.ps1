@@ -58,7 +58,15 @@ try {
  $bootstrapReady=$false
  for($i=0;$i -lt 60;$i++){Start-Sleep -Milliseconds 250;if(Test-Path $marker){$errorRecord=Get-Content $marker -Raw | ConvertFrom-Json;if($errorRecord.processId -eq $boot.Id -and $errorRecord.message -eq 'Invalid Hub handoff.'){$bootstrapReady=$true;break}};if($boot.HasExited){break}}
  if(!$bootstrapReady){throw 'Standalone bootstrap did not reach its own fail-closed handler without SDK bindings'}
-} finally {if(!$boot.HasExited){Stop-Process -Id $boot.Id};$boot.Dispose();Remove-Item $bootstrapStage -Recurse -Force}
+} finally {
+ # Stop-Process requests termination; Windows can retain the executable mapping
+ # until the process handle signals. Keep the handle until that has happened.
+ try {
+  if(!$boot.HasExited){Stop-Process -Id $boot.Id}
+  if(!$boot.WaitForExit(10000)){throw 'Bootstrap cleanup timed out waiting for process exit'}
+ } finally {$boot.Dispose()}
+ Remove-Item $bootstrapStage -Recurse -Force
+}
 $smokeStage = 'native pages, resize and focus'
 $hub = $null
 try {
