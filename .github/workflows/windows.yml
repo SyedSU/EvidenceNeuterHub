@@ -7,6 +7,7 @@ permissions:
   contents: read
 jobs:
   build:
+    if: github.ref != 'refs/heads/main'
     runs-on: windows-latest
     timeout-minutes: 20
     steps:
@@ -36,3 +37,36 @@ jobs:
             artifacts/*-tests.log
           retention-days: 3
           if-no-files-found: error
+
+  review-build:
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.402
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m unittest discover -s tests -p test_review_storage.py
+      - run: choco install nsis --version=3.11 -y --no-progress
+      - shell: pwsh
+        run: ./installer/build.ps1
+        env:
+          GENESIS_RELEASE_PUBLIC_KEY_PEM: ${{ vars.GENESIS_RELEASE_PUBLIC_KEY_PEM }}
+          HUB_RELEASE_PUBLIC_KEY_PEM: ${{ vars.HUB_RELEASE_PUBLIC_KEY_PEM }}
+          HUB_PUBLISHER_SHA256: ${{ vars.HUB_PUBLISHER_SHA256 }}
+          CATALOG_RELEASE_PUBLIC_KEY_PEM: ${{ vars.CATALOG_RELEASE_PUBLIC_KEY_PEM }}
+          CATALOG_URL: ${{ vars.CATALOG_URL }}
+      - shell: pwsh
+        run: ./installer/smoke.ps1
+      - name: Store private review draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python scripts/store_review_build.py
