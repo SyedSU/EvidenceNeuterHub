@@ -5,7 +5,9 @@ on:
     branches: [main]
     paths: ['scripts/inspect_review_build.py', 'tests/test_review_inspection.py', 'review/inspection-lock.json', '.github/workflows/inspect-review.yml']
 permissions:
-  contents: read
+  # GitHub requires repository write access even to read drafts.
+  # The inspector performs GET/download only; no release mutation or promotion.
+  contents: write
 jobs:
   inspect:
     if: github.ref == 'refs/heads/main'
