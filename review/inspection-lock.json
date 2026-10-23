@@ -1,0 +1,75 @@
+{
+  "product": "hub",
+  "repository": "SyedSU/EvidenceNeuterHub",
+  "sourceCommit": "cbad8156d6ec5e91eb9eef7b4aaa2bc3ec7717c1",
+  "runId": 39888763913,
+  "jobId": 120203158986,
+  "result": "PASS",
+  "release": {
+    "id": 421386828,
+    "url": "https://github.com/SyedSU/EvidenceNeuterHub/releases/tag/untagged-7b20d5c95fcb89605e63",
+    "tag": "review-hub-cbad8156d6ec5e91eb9eef7b4aaa2bc3ec7717c1-39888763913-1",
+    "draft": true,
+    "prerelease": true
+  },
+  "assets": [
+    {
+      "name": "core-tests.log",
+      "size": 94,
+      "sha256": "sha256:6e94bf16fd963647da97fbb18c0ab87d1993d4f36bf0d7e42c253c6aed270192"
+    },
+    {
+      "name": "EvidenceNeuterHub-Setup-0.3.0.exe",
+      "size": 81667224,
+      "sha256": "sha256:5dbfe457ad29f5c06e63d49c3da1382f8e3c07db44ff15b48b445644428eb2b5"
+    },
+    {
+      "name": "review-build.json",
+      "size": 2396,
+      "sha256": "sha256:9402a13478685c53372b718f39cb36a9b0817ef05d21ac43b07a376ba45aec98"
+    },
+    {
+      "name": "SHA256.txt",
+      "size": 200,
+      "sha256": "sha256:f534018841980a1fec508934ea262b54b4377939afc5ca03c8e8fb0d46b4710a"
+    },
+    {
+      "name": "updater-tests.log",
+      "size": 5740,
+      "sha256": "sha256:818e8f66646cc3b398205514f1b0c4d07c4d78bfe9a1c931f9f76dc4eb01df47"
+    },
+    {
+      "name": "windows-discover.png",
+      "size": 92666,
+      "sha256": "sha256:fa22746cb75cc83a36c02f1f63682c3f433aa993188e0b84519dd9840cf1c465"
+    },
+    {
+      "name": "windows-downloads.png",
+      "size": 54821,
+      "sha256": "sha256:9cfb882440abd27c337cb68eb40c85a7e20be509d3825c56ddde13e91dbb85d9"
+    },
+    {
+      "name": "windows-finish-launch.png",
+      "size": 92546,
+      "sha256": "sha256:8e2bac67f56713b1024bed69f29cdf8113e53b7b887b0ae6dc492d389140a97e"
+    },
+    {
+      "name": "windows-library.png",
+      "size": 51532,
+      "sha256": "sha256:f3f92c076ef4077d319b0338ae4aa6ba6148eed8ef47b451217bad4cad5956cb"
+    },
+    {
+      "name": "windows-resized.png",
+      "size": 76258,
+      "sha256": "sha256:f82924bd8848de202b58c373e33c4ccce2d1d0bcc94014a911dc1731f2b9553d"
+    },
+    {
+      "name": "windows-settings.png",
+      "size": 65931,
+      "sha256": "sha256:a7d0c9fe5541fbdded49a7ac1ebddba7fede4d660c57d33bc48e7035d7c75df2"
+    }
+  ],
+  "serverSizeSha256Verified": true,
+  "independentPackageInspection": "UNRUN",
+  "productionPublicationAuthorized": false
+}
